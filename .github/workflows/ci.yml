@@ -1,0 +1,80 @@
+name: AdhiEMB CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  backend-ci:
+    name: Backend CI (Spring Boot)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpassword
+          MYSQL_DATABASE: adhiemb_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    defaults:
+      run:
+        working-directory: adhiemb-backend
+
+    env:
+      JWT_SECRET: "CiDummyJwtSecretKeyForTestingPurposesMustBeAtLeast256BitsLongForHS256Algorithm"
+      DB_URL: "jdbc:mysql://127.0.0.1:3306/adhiemb_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+      DB_USERNAME: "root"
+      DB_PASSWORD: "testpassword"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build and Test Backend (Maven)
+        run: mvn clean package
+
+  frontend-ci:
+    name: Frontend CI (React / TypeScript / Vite)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: adhiemb-frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (LTS 20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'adhiemb-frontend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Build Frontend Application
+        run: npm run build
