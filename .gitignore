@@ -1,0 +1,72 @@
+# Node / React / Vite
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Java / Spring Boot / Maven / Build artifacts
+target/
+**/target/
+**/target/**
+bin/
+**/bin/
+**/bin/**
+.maven/
+**/.maven/
+.maven/**
+**/.maven/**
+.maven
+.m2/
+**/.m2/
+.m2/**
+**/.m2/**
+.m2
+*.class
+*.log
+
+# AdhiEMB local file storage
+fstore/
+**/fstore/
+**/fstore/**
+uploads/
+**/uploads/
+**/uploads/**
+
+# IDE / Eclipse / IntelliJ / VSCode
+.idea/
+*.iml
+.vscode/
+.classpath
+**/.classpath
+.project
+**/.project
+.factorypath
+**/.factorypath
+.settings/
+**/.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Docker local override
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log

@@ -1,0 +1,20 @@
+CREATE TABLE payments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    payment_number VARCHAR(50) NOT NULL UNIQUE,
+    payment_method VARCHAR(50) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'USD',
+    gateway_order_id VARCHAR(100),
+    gateway_payment_id VARCHAR(100),
+    gateway_signature VARCHAR(255),
+    status VARCHAR(30) NOT NULL DEFAULT 'INITIATED',
+    response_payload TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    INDEX idx_payments_order (order_id),
+    INDEX idx_payments_gateway (gateway_payment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

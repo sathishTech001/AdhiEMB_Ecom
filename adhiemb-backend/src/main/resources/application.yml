@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: adhiemb-backend
+  profiles:
+    active: dev
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-expiration: 900000
+    refresh-token-expiration: 604800000
+    issuer: adhiemb
+  storage:
+    fstore-path: ${FSTORE_PATH:./fstore}
+    upload-dir: ${UPLOAD_DIR:./fstore}
+    max-file-size: 5MB

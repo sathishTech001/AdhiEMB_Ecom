@@ -1,0 +1,32 @@
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    ME: '/auth/me',
+    LOGOUT: '/auth/logout',
+  },
+  USERS: '/users',
+  EMPLOYEES: '/employees',
+  ROLES: '/roles',
+  MENUS: '/menus',
+  PERMISSIONS: '/permissions',
+  CATEGORIES: '/categories',
+  PUBLIC_CATEGORIES: '/public/categories',
+  PRODUCTS: '/products',
+  PUBLIC_PRODUCTS: '/public/products',
+  FILES: '/files',
+  CART: '/cart',
+  ORDERS: '/orders',
+  PAYMENTS: '/payments',
+  DOWNLOADS: '/downloads',
+  REVIEWS: '/reviews',
+  PUBLIC_REVIEWS: '/public/reviews',
+  NOTIFICATIONS: '/notifications',
+  ANALYTICS: '/analytics',
+  SETTINGS: '/settings',
+  WISHLIST: '/wishlist',
+  COUPONS: '/coupons',
+  PUBLIC_COUPONS: '/public/coupons',
+} as const;

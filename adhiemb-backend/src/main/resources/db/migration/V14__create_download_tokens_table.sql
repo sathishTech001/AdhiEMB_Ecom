@@ -1,0 +1,20 @@
+CREATE TABLE download_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(100) NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL,
+    order_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    file_id BIGINT,
+    download_count INT DEFAULT 0,
+    max_downloads INT DEFAULT 50,
+    expires_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    INDEX idx_download_tokens_token (token),
+    INDEX idx_download_tokens_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
