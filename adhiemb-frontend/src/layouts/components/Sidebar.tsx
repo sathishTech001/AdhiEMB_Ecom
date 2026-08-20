@@ -49,7 +49,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     if (isProductRoute) {
       setIsProductsExpanded(true);
     }
-  }, [location.pathname]);
+  }, [isProductRoute]);
 
   // Product child menu authorization permissions
   const canViewCategories = !isCust && (roleCode === 'OWNER' || roleCode === 'ADMIN' || roleCode === 'EMPLOYEE' || hasPermission('CATEGORY_VIEW'));
