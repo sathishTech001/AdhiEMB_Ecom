@@ -26,6 +26,7 @@ import java.util.UUID;
 public class FstoreStorageService {
 
     private final FstoreEnvironmentResolver environmentResolver;
+    private final Path fstoreRootLocation;
 
     private static final Set<String> ALLOWED_IMAGE_MIME_TYPES = Set.of(
             "image/jpeg", "image/jpg", "image/png", "image/webp"
