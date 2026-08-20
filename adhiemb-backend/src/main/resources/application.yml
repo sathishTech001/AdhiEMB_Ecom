@@ -14,6 +14,11 @@ app:
     refresh-token-expiration: 604800000
     issuer: adhiemb
   storage:
+    type: ${STORAGE_TYPE:local}
     fstore-path: ${FSTORE_PATH:./fstore}
     upload-dir: ${UPLOAD_DIR:./fstore}
     max-file-size: 5MB
+  aws:
+    region: ${AWS_REGION:ap-south-1}
+    s3:
+      bucket: ${AWS_S3_BUCKET:adhiemb-ecom-fstore}

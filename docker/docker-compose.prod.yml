@@ -1,24 +1,4 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: adhiemb-mysql-prod
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME:-adhiemb_db}
-      MYSQL_USER: ${DB_USERNAME:-adhiemb_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - mysql-prod-data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - adhiemb-prod-network
-
   backend:
     build:
       context: ../adhiemb-backend
@@ -27,17 +7,12 @@ services:
     restart: unless-stopped
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - DB_URL=jdbc:mysql://mysql:3306/${DB_NAME:-adhiemb_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      - DB_USERNAME=${DB_USERNAME:-adhiemb_user}
+      - DB_URL=${DB_URL}
+      - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
-      - UPLOAD_DIR=/var/app/fstore-prod
-      - FSTORE_PATH=/var/app/fstore-prod
-    volumes:
-      - fstore-prod-data:/var/app/fstore-prod
-    depends_on:
-      mysql:
-        condition: service_healthy
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET:-adhiemb-ecom-fstore}
     networks:
       - adhiemb-prod-network
     expose:
@@ -62,9 +37,3 @@ networks:
   adhiemb-prod-network:
     name: adhiemb-prod-network
     driver: bridge
-
-volumes:
-  mysql-prod-data:
-    name: adhiemb-mysql-prod-data
-  fstore-prod-data:
-    name: adhiemb-fstore-prod-data

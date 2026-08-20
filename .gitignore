@@ -12,6 +12,8 @@ coverage/
 .env.*
 !.env.example
 !.env.template
+!.env.*.example
+!*.example
 
 # Java / Spring Boot / Maven / Build artifacts
 target/
