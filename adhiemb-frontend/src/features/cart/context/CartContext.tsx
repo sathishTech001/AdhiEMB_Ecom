@@ -103,8 +103,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let price = file?.price !== undefined ? file.price : 0;
       let image: string | undefined = undefined;
       let format: MachineFormat | undefined = (file?.fileFormat || file?.format || selectedFormat) as any;
-      let machineInfo: string | undefined = file?.machineInfo;
-      let originalFileName: string | undefined = file?.originalFileName || file?.fileName;
+      const machineInfo: string | undefined = file?.machineInfo;
+      const originalFileName: string | undefined = file?.originalFileName || file?.fileName;
 
       if ('title' in target) {
         // Product object passed

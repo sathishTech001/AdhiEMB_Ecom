@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Paintbrush,
   Eraser,
@@ -78,6 +78,15 @@ export const ImageMaskEditor: React.FC<ImageMaskEditorProps> = ({
   // Image natural dimensions
   const [imgDim, setImgDim] = useState<{ width: number; height: number }>({ width: 800, height: 800 });
 
+  const saveStateToHistory = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    const currentState = ctx.getImageData(0, 0, w, h);
+    setHistory((prev) => {
+      const updated = prev.slice(0, historyIndex + 1);
+      return [...updated, currentState];
+    });
+    setHistoryIndex((prev) => prev + 1);
+  }, [historyIndex]);
+
   // Load image on open
   useEffect(() => {
     if (!isOpen || !imageUrl) return;
@@ -118,16 +127,7 @@ export const ImageMaskEditor: React.FC<ImageMaskEditorProps> = ({
         }
       }
     };
-  }, [isOpen, imageUrl]);
-
-  const saveStateToHistory = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-    const currentState = ctx.getImageData(0, 0, w, h);
-    setHistory((prev) => {
-      const updated = prev.slice(0, historyIndex + 1);
-      return [...updated, currentState];
-    });
-    setHistoryIndex((prev) => prev + 1);
-  };
+  }, [isOpen, imageUrl, saveStateToHistory]);
 
   const handleUndo = () => {
     if (historyIndex > 0 && maskCanvasRef.current) {
