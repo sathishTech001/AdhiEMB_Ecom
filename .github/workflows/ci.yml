@@ -202,80 +202,87 @@ jobs:
           echo "Release Tag: ${{ steps.vars.outputs.sha_short }}"
           echo "=================================================="
 
-          DEPLOY_SCRIPT="set -e
-          cd /home/ubuntu/adhiemb-ecom
-          git pull origin main || true
-          docker --version
-          docker compose version
+          RELEASE_TAG="${{ steps.vars.outputs.sha_short }}"
 
-          if [ ! -f 'docker/docker-compose.prod.yml' ] || [ ! -f 'docker/.env.prod' ]; then
-            echo 'ERROR: Required compose or environment configuration files missing!'
-            exit 1
-          fi
+          cat << 'EOF' > /tmp/deploy_script.sh
+set -e
+cd /home/ubuntu/adhiemb-ecom
+git pull origin main || true
+docker --version
+docker compose version
 
-          PREV_BACKEND=\$(docker inspect --format='{{.Config.Image}}' adhiemb-backend-prod 2>/dev/null || echo 'sathishg26/adhiemb-backend:1.0.0')
-          PREV_FRONTEND=\$(docker inspect --format='{{.Config.Image}}' adhiemb-frontend-prod 2>/dev/null || echo 'sathishg26/adhiemb-frontend:1.0.1')
-          echo 'Active baseline images: Backend='\$PREV_BACKEND', Frontend='\$PREV_FRONTEND
+if [ ! -f 'docker/docker-compose.prod.yml' ] || [ ! -f 'docker/.env.prod' ]; then
+  echo 'ERROR: Required compose or environment configuration files missing!'
+  exit 1
+fi
 
-          echo 'Pulling immutable release images...'
-          docker pull sathishg26/adhiemb-backend:${{ steps.vars.outputs.sha_short }}
-          docker pull sathishg26/adhiemb-frontend:${{ steps.vars.outputs.sha_short }}
+PREV_BACKEND=$(docker inspect --format='{{.Config.Image}}' adhiemb-backend-prod 2>/dev/null || echo 'sathishg26/adhiemb-backend:1.0.0')
+PREV_FRONTEND=$(docker inspect --format='{{.Config.Image}}' adhiemb-frontend-prod 2>/dev/null || echo 'sathishg26/adhiemb-frontend:1.0.1')
+echo "Active baseline images: Backend=${PREV_BACKEND}, Frontend=${PREV_FRONTEND}"
 
-          echo 'Validating compose file...'
-          BACKEND_IMAGE_TAG=${{ steps.vars.outputs.sha_short }} FRONTEND_IMAGE_TAG=${{ steps.vars.outputs.sha_short }} \
-            docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml config > /dev/null
+echo "Pulling immutable release images for tag ${RELEASE_TAG}..."
+docker pull sathishg26/adhiemb-backend:${RELEASE_TAG}
+docker pull sathishg26/adhiemb-frontend:${RELEASE_TAG}
 
-          echo 'Deploying backend container...'
-          BACKEND_IMAGE_TAG=${{ steps.vars.outputs.sha_short }} FRONTEND_IMAGE_TAG=${{ steps.vars.outputs.sha_short }} \
-            docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d backend
+echo 'Validating compose file...'
+BACKEND_IMAGE_TAG=${RELEASE_TAG} FRONTEND_IMAGE_TAG=${RELEASE_TAG} \
+  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml config > /dev/null
 
-          sleep 5
-          if ! docker ps | grep -q 'adhiemb-backend-prod'; then
-            echo 'ERROR: Backend container failed to start!'
-            docker logs --tail 50 adhiemb-backend-prod
-            exit 1
-          fi
+echo 'Deploying backend container...'
+BACKEND_IMAGE_TAG=${RELEASE_TAG} FRONTEND_IMAGE_TAG=${RELEASE_TAG} \
+  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d backend
 
-          echo 'Performing internal backend health check...'
-          HEALTH_PASSED=false
-          for i in \$(seq 1 15); do
-            if docker exec adhiemb-backend-prod wget -q -O - http://localhost:8080/actuator/health 2>/dev/null | grep -q 'UP'; then
-              echo 'Backend health check PASSED!'
-              HEALTH_PASSED=true
-              break
-            fi
-            sleep 5
-          done
+sleep 5
+if ! docker ps | grep -q 'adhiemb-backend-prod'; then
+  echo 'ERROR: Backend container failed to start!'
+  docker logs --tail 50 adhiemb-backend-prod
+  exit 1
+fi
 
-          if [ \"\$HEALTH_PASSED\" = \"false\" ]; then
-            echo 'ERROR: Backend health check failed! Aborting frontend deployment.'
-            docker logs --tail 100 adhiemb-backend-prod
-            echo 'Restoring baseline containers...'
-            BACKEND_IMAGE_TAG=1.0.0 FRONTEND_IMAGE_TAG=1.0.1 docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d
-            exit 1
-          fi
+echo 'Performing internal backend health check...'
+HEALTH_PASSED=false
+for i in $(seq 1 15); do
+  if docker exec adhiemb-backend-prod wget -q -O - http://localhost:8080/actuator/health 2>/dev/null | grep -q 'UP'; then
+    echo 'Backend health check PASSED!'
+    HEALTH_PASSED=true
+    break
+  fi
+  sleep 5
+done
 
-          echo 'Deploying frontend container...'
-          BACKEND_IMAGE_TAG=${{ steps.vars.outputs.sha_short }} FRONTEND_IMAGE_TAG=${{ steps.vars.outputs.sha_short }} \
-            docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d frontend
+if [ "$HEALTH_PASSED" = "false" ]; then
+  echo 'ERROR: Backend health check failed! Aborting frontend deployment.'
+  docker logs --tail 100 adhiemb-backend-prod
+  echo 'Restoring baseline containers...'
+  BACKEND_IMAGE_TAG=1.0.0 FRONTEND_IMAGE_TAG=1.0.1 docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d
+  exit 1
+fi
 
-          echo 'Verifying running containers...'
-          docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
+echo 'Deploying frontend container...'
+BACKEND_IMAGE_TAG=${RELEASE_TAG} FRONTEND_IMAGE_TAG=${RELEASE_TAG} \
+  docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d frontend
 
-          echo 'Verifying container digests...'
-          echo \"Backend Image ID: \$(docker inspect --format='{{.Image}}' adhiemb-backend-prod)\"
-          echo \"Frontend Image ID: \$(docker inspect --format='{{.Image}}' adhiemb-frontend-prod)\"
+echo 'Verifying running containers...'
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
 
-          echo 'Verifying public HTTP/HTTPS endpoints...'
-          curl -f -s https://adhiemb.com/api/public/products > /dev/null
-          curl -f -s https://adhiemb.com/actuator/health > /dev/null
-          echo 'SUCCESS: Deployment completed cleanly for SHA ${{ steps.vars.outputs.sha_short }}'"
+echo 'Verifying container digests...'
+echo "Backend Image ID: $(docker inspect --format='{{.Image}}' adhiemb-backend-prod)"
+echo "Frontend Image ID: $(docker inspect --format='{{.Image}}' adhiemb-frontend-prod)"
 
+echo 'Verifying public HTTP/HTTPS endpoints...'
+curl -f -s https://adhiemb.com/api/public/products > /dev/null
+curl -f -s https://adhiemb.com/actuator/health > /dev/null
+echo "SUCCESS: Deployment completed cleanly for SHA ${RELEASE_TAG}"
+EOF
+
+          FULL_COMMAND="RELEASE_TAG='${RELEASE_TAG}'"$'\n'"$(cat /tmp/deploy_script.sh)"
+
+          jq -n --arg cmd "$FULL_COMMAND" '{"commands": [$cmd]}' > /tmp/ssm_parameters.json
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[\"$DEPLOY_SCRIPT\"]" \
+            --parameters file:///tmp/ssm_parameters.json \
             --query "Command.CommandId" \
             --output text)
 
