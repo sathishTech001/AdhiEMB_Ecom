@@ -15,21 +15,88 @@ jobs:
     steps:
       - name: Request OIDC Token & Decode Claims
         run: |
-          ACTIONS_ID_TOKEN_REQUEST_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com"
-          JWT=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')
-          PAYLOAD=$(echo "$JWT" | cut -d. -f2 | openssl base64 -d -A 2>/dev/null || echo "$JWT" | cut -d. -f2 | base64 -d 2>/dev/null)
+          URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com"
+          RESPONSE=$(curl -s -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$URL")
           
-          echo "=================================================="
-          echo "DECODED GITHUB OIDC CLAIMS"
-          echo "=================================================="
-          echo "iss: $(echo "$PAYLOAD" | jq -r '.iss')"
-          echo "aud: $(echo "$PAYLOAD" | jq -r '.aud')"
-          echo "sub: $(echo "$PAYLOAD" | jq -r '.sub')"
-          echo "repository: $(echo "$PAYLOAD" | jq -r '.repository')"
-          echo "repository_owner: $(echo "$PAYLOAD" | jq -r '.repository_owner')"
-          echo "ref: $(echo "$PAYLOAD" | jq -r '.ref')"
-          echo "ref_type: $(echo "$PAYLOAD" | jq -r '.ref_type')"
-          echo "workflow: $(echo "$PAYLOAD" | jq -r '.workflow')"
-          echo "job_workflow_ref: $(echo "$PAYLOAD" | jq -r '.job_workflow_ref')"
-          echo "event_name: $(echo "$PAYLOAD" | jq -r '.event_name')"
-          echo "=================================================="
+          TOKEN_RESPONSE="$RESPONSE" python3 -c '
+          import os, sys, json, base64
+
+          response_raw = os.environ.get("TOKEN_RESPONSE", "")
+          try:
+              data = json.loads(response_raw)
+              token = data.get("value", "")
+          except Exception:
+              print("OIDC token structure: INVALID")
+              sys.exit(1)
+
+          if not token or not isinstance(token, str):
+              print("OIDC token structure: INVALID")
+              sys.exit(1)
+
+          parts = token.split(".")
+          if len(parts) != 3:
+              print("OIDC token structure: INVALID")
+              sys.exit(1)
+
+          print("OIDC token structure: VALID")
+
+          payload_b64 = parts[1]
+          payload_b64 += "=" * (-len(payload_b64) % 4)
+
+          try:
+              payload_bytes = base64.urlsafe_b64decode(payload_b64)
+              claims = json.loads(payload_bytes.decode("utf-8"))
+          except Exception as e:
+              print(f"Failed to parse payload: {e}")
+              sys.exit(1)
+
+          claim_keys = [
+              "iss",
+              "aud",
+              "sub",
+              "repository",
+              "repository_owner",
+              "ref",
+              "ref_type",
+              "workflow",
+              "job_workflow_ref",
+              "event_name"
+          ]
+
+          print("==================================================")
+          print("DECODED GITHUB OIDC CLAIMS")
+          print("==================================================")
+          for k in claim_keys:
+              val = claims.get(k, "")
+              print(f"{k}: {val}")
+          print("==================================================")
+
+          exp_iss = "https://token.actions.githubusercontent.com"
+          exp_aud = "sts.amazonaws.com"
+          exp_repo = "sathishTech001/AdhiEMB_Ecom"
+          exp_ref = "refs/heads/main"
+          exp_sub = f"repo:{exp_repo}:ref:{exp_ref}"
+
+          iss_val = claims.get("iss", "")
+          aud_val = claims.get("aud", "")
+          repo_val = claims.get("repository", "")
+          ref_val = claims.get("ref", "")
+          sub_val = claims.get("sub", "")
+
+          if isinstance(aud_val, list):
+              aud_match = "YES" if exp_aud in aud_val else "NO"
+          else:
+              aud_match = "YES" if aud_val == exp_aud else "NO"
+
+          iss_match = "YES" if iss_val == exp_iss else "NO"
+          repo_match = "YES" if repo_val == exp_repo else "NO"
+          ref_match = "YES" if ref_val == exp_ref else "NO"
+          sub_match = "YES" if sub_val == exp_sub else "NO"
+
+          print(f"Issuer match: {iss_match}")
+          print(f"Audience match: {aud_match}")
+          print(f"Repository match: {repo_match}")
+          print(f"Ref match: {ref_match}")
+          print(f"Sub match: {sub_match}")
+          '
+
