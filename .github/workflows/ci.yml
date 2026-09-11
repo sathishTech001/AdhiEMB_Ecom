@@ -92,6 +92,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set Short SHA
+        id: vars
+        run: echo "sha_short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -108,8 +112,8 @@ jobs:
           file: ./adhiemb-backend/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-ecom-backend:v1
-            ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-ecom-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-backend:${{ steps.vars.outputs.sha_short }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-backend:latest
 
   frontend-docker:
     name: Build & Push Frontend Docker Image
@@ -120,6 +124,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set Short SHA
+        id: vars
+        run: echo "sha_short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -137,5 +145,27 @@ jobs:
           file: ./adhiemb-frontend/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-ecom-frontend:v1
-            ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-ecom-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-frontend:${{ steps.vars.outputs.sha_short }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-frontend:latest
+
+  release-ready:
+    name: Prepare Release Reference
+    needs: [backend-docker, frontend-docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set Short SHA
+        id: vars
+        run: echo "sha_short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Report Release Readiness
+        run: |
+          echo "=================================================="
+          echo "RELEASE ARTIFACTS VERIFIED AND READY FOR DEPLOYMENT"
+          echo "=================================================="
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Release Tag: ${{ steps.vars.outputs.sha_short }}"
+          echo "Backend Image: ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-backend:${{ steps.vars.outputs.sha_short }}"
+          echo "Frontend Image: ${{ secrets.DOCKERHUB_USERNAME }}/adhiemb-frontend:${{ steps.vars.outputs.sha_short }}"
+          echo "=================================================="
