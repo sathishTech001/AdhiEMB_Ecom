@@ -27,12 +27,56 @@ export const productsApi = {
   },
 
   create: async (productData: CreateProductData): Promise<ApiResponse<ProductDetail>> => {
-    const { data } = await apiClient.post(API_ENDPOINTS.PRODUCTS, productData);
+    const imageUrls = productData.images
+      ? productData.images.map((img) => (typeof img === 'string' ? img : (img.imageUrl || img.url || '')))
+      : [];
+    const formattedFiles = productData.files?.map((f) => ({
+      fileName: f.fileName || f.originalFileName || '',
+      originalFileName: f.originalFileName || f.fileName || '',
+      fileUrl: f.fileUrl || f.filePath || '#',
+      filePath: f.filePath || f.fileUrl || '#',
+      storageKey: f.storageKey || f.filePath || f.fileUrl || f.fileName || '',
+      fileFormat: f.format || f.fileFormat || 'DST',
+      fileSize: f.fileSize || f.fileSizeBytes || 0,
+      fileSizeBytes: f.fileSizeBytes || f.fileSize || 0,
+      machineInfo: f.machineInfo || '',
+      price: f.price !== undefined && f.price !== null && (f.price as any) !== '' && !isNaN(Number(f.price))
+        ? Number(f.price)
+        : 25,
+    })) || [];
+    const payload = {
+      ...productData,
+      imageUrls: (productData as any).imageUrls || imageUrls,
+      files: formattedFiles,
+    };
+    const { data } = await apiClient.post(API_ENDPOINTS.PRODUCTS, payload);
     return data;
   },
 
   update: async (id: string | number, productData: UpdateProductData): Promise<ApiResponse<ProductDetail>> => {
-    const { data } = await apiClient.put(`${API_ENDPOINTS.PRODUCTS}/${id}`, productData);
+    const imageUrls = productData.images
+      ? productData.images.map((img) => (typeof img === 'string' ? img : (img.imageUrl || img.url || '')))
+      : undefined;
+    const formattedFiles = productData.files?.map((f) => ({
+      fileName: f.fileName || f.originalFileName || '',
+      originalFileName: f.originalFileName || f.fileName || '',
+      fileUrl: f.fileUrl || f.filePath || '#',
+      filePath: f.filePath || f.fileUrl || '#',
+      storageKey: f.storageKey || f.filePath || f.fileUrl || f.fileName || '',
+      fileFormat: f.format || f.fileFormat || 'DST',
+      fileSize: f.fileSize || f.fileSizeBytes || 0,
+      fileSizeBytes: f.fileSizeBytes || f.fileSize || 0,
+      machineInfo: f.machineInfo || '',
+      price: f.price !== undefined && f.price !== null && (f.price as any) !== '' && !isNaN(Number(f.price))
+        ? Number(f.price)
+        : 25,
+    }));
+    const payload = {
+      ...productData,
+      ...(imageUrls ? { imageUrls } : {}),
+      ...(formattedFiles ? { files: formattedFiles } : {}),
+    };
+    const { data } = await apiClient.put(`${API_ENDPOINTS.PRODUCTS}/${id}`, payload);
     return data;
   },
 

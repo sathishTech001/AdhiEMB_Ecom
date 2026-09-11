@@ -22,6 +22,10 @@ public class CartItem extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_file_id")
+    private com.adhiemb.module.product.entity.ProductFileData productFile;
+
     @Column(nullable = false)
     @Builder.Default
     private Integer quantity = 1;

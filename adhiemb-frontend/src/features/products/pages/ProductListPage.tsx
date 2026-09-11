@@ -28,6 +28,7 @@ import {
 } from '../hooks/useProducts';
 import { useCategoriesQuery } from '@/features/categories/hooks/useCategories';
 import { Product, ProductStatus } from '../types/product.types';
+import { getImageUrl } from '@/lib/utils';
 
 export function ProductListPage({ defaultTab = 'ALL' }: { defaultTab?: ProductStatus | 'ALL' }) {
   const navigate = useNavigate();
@@ -98,6 +99,14 @@ export function ProductListPage({ defaultTab = 'ALL' }: { defaultTab?: ProductSt
     { id: 'DRAFT', label: 'Drafts' },
   ];
 
+  const getProductThumbnail = (product: Product) => {
+    const raw = product.primaryImageUrl || product.primaryImage ||
+      (product.images && product.images.length > 0
+        ? (typeof product.images[0] === 'string' ? product.images[0] : ((product.images[0] as any).imageUrl || (product.images[0] as any).url))
+        : null);
+    return getImageUrl(raw) || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80';
+  };
+
   const columns: Column<Product>[] = [
     {
       key: 'product',
@@ -105,7 +114,7 @@ export function ProductListPage({ defaultTab = 'ALL' }: { defaultTab?: ProductSt
       render: (product: Product) => (
         <div className="flex items-center gap-3">
           <img
-            src={product.primaryImage || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80'}
+            src={getProductThumbnail(product)}
             alt={product.title}
             className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0"
           />
@@ -158,35 +167,23 @@ export function ProductListPage({ defaultTab = 'ALL' }: { defaultTab?: ProductSt
     {
       key: 'formats',
       label: 'Formats',
-      render: (product: Product) => (
-        <div className="flex flex-wrap gap-1 max-w-[140px]">
-          {(product.formats || ['DST', 'PES']).slice(0, 3).map((fmt) => (
-            <Badge key={fmt} variant="default" className="text-[10px] px-1.5 py-0 font-mono">
-              .{fmt}
-            </Badge>
-          ))}
-          {product.formats && product.formats.length > 3 && (
-            <span className="text-[10px] text-slate-400">+{product.formats.length - 3}</span>
-          )}
-        </div>
-      ),
+      render: (product: Product) => {
+        const displayFormats = product.availableFormats || product.formats || ['DST', 'PES'];
+        return (
+          <div className="flex flex-wrap gap-1 max-w-[140px]">
+            {displayFormats.slice(0, 3).map((fmt) => (
+              <Badge key={fmt} variant="default" className="text-[10px] px-1.5 py-0 font-mono">
+                .{fmt}
+              </Badge>
+            ))}
+            {displayFormats.length > 3 && (
+              <span className="text-[10px] text-slate-400">+{displayFormats.length - 3}</span>
+            )}
+          </div>
+        );
+      },
     },
-    {
-      key: 'price',
-      label: 'Price',
-      render: (product: Product) => (
-        <div>
-          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-            ${product.price?.toFixed(2)}
-          </span>
-          {product.discountPrice && (
-            <span className="text-xs text-slate-400 line-through ml-1.5">
-              ${product.discountPrice.toFixed(2)}
-            </span>
-          )}
-        </div>
-      ),
-    },
+
     {
       key: 'status',
       label: 'Status',
@@ -214,7 +211,7 @@ export function ProductListPage({ defaultTab = 'ALL' }: { defaultTab?: ProductSt
             {
               key: 'edit',
               label: 'Edit Design',
-              onClick: () => navigate(`/products/${product.id}`),
+              onClick: () => navigate(`/products/${product.id}/edit`),
               icon: <Edit3 className="w-4 h-4 text-indigo-500" />,
             },
             ...(product.status === 'DRAFT'

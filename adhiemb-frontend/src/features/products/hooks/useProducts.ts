@@ -48,8 +48,7 @@ export function usePublicProductsSearchQuery(filters?: ProductFilters) {
     queryKey: [...PUBLIC_PRODUCTS_QUERY_KEY, 'search', filters],
     queryFn: async () => {
       const response = await productsApi.searchPublic(filters);
-      const resData = response.data as any;
-      return resData?.data || resData?.content || resData || [];
+      return response.data;
     },
   });
 }
@@ -60,7 +59,7 @@ export function useFeaturedProductsQuery() {
     queryFn: async () => {
       const response = await productsApi.getFeatured();
       const resData = response.data as any;
-      return resData?.data || resData?.content || resData || [];
+      return Array.isArray(resData) ? resData : resData?.content || resData?.data || [];
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -71,8 +70,12 @@ export function useCreateProduct() {
 
   return useMutation({
     mutationFn: (data: CreateProductData) => productsApi.create(data),
-    onSuccess: () => {
-      toast.success('Product created successfully');
+    onSuccess: (_, variables) => {
+      if (variables.status === 'PENDING_APPROVAL') {
+        toast.success('Product submitted for approval successfully!');
+      } else {
+        toast.success('Product draft saved successfully!');
+      }
       queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY });
     },
     onError: (error: any) => {

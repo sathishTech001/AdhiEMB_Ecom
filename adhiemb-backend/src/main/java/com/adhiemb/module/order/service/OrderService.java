@@ -74,17 +74,26 @@ public class OrderService {
 
         for (CartItem cartItem : cart.getItems()) {
             Product product = cartItem.getProduct();
-            BigDecimal price = product.getDiscountPrice() != null && product.getDiscountPrice().compareTo(BigDecimal.ZERO) > 0
-                    ? product.getDiscountPrice()
-                    : product.getPrice();
+            com.adhiemb.module.product.entity.ProductFileData file = cartItem.getProductFile();
+
+            BigDecimal price = file != null && file.getPrice() != null ? file.getPrice() : BigDecimal.ZERO;
 
             subtotal = subtotal.add(price.multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+
+            String title = product.getTitle();
+            if (file != null) {
+                String extra = file.getMachineInfo() != null ? file.getMachineInfo() + " (" + file.getFileFormat() + ")" : file.getFileFormat().name();
+                title = title + " - " + extra;
+            }
 
             OrderItem orderItem = OrderItem.builder()
                     .order(order)
                     .product(product)
-                    .productTitle(product.getTitle())
+                    .productFile(file)
+                    .productTitle(title)
                     .productPrice(price)
+                    .machineInfo(file != null ? file.getMachineInfo() : null)
+                    .fileFormat(file != null && file.getFileFormat() != null ? file.getFileFormat().name() : null)
                     .build();
             orderItems.add(orderItem);
         }
@@ -164,7 +173,10 @@ public class OrderService {
                 itemDTOs.add(new OrderItemDTO(
                         item.getId(),
                         product != null ? product.getId() : null,
+                        item.getProductFile() != null ? item.getProductFile().getId() : null,
                         item.getProductTitle(),
+                        item.getFileFormat(),
+                        item.getMachineInfo(),
                         item.getProductPrice(),
                         primaryImageUrl
                 ));

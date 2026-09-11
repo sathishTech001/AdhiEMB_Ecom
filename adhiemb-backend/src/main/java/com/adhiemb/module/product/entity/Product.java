@@ -23,18 +23,16 @@ public class Product extends BaseEntity {
     @Column(nullable = false)
     private String title;
 
+    @Column(name = "product_code", length = 100)
+    private String productCode;
+
     @Column(nullable = false, unique = true)
     private String slug;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    @Builder.Default
-    private BigDecimal price = BigDecimal.ZERO;
 
-    @Column(name = "discount_price", precision = 10, scale = 2)
-    private BigDecimal discountPrice;
 
     @Column(name = "stitch_count")
     @Builder.Default
@@ -57,6 +55,9 @@ public class Product extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    @Column(name = "design_type", length = 100)
+    private String designType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "designer_id", nullable = false)
@@ -96,5 +97,5 @@ public class Product extends BaseEntity {
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<ProductFile> files = new ArrayList<>();
+    private List<ProductFileData> files = new ArrayList<>();
 }

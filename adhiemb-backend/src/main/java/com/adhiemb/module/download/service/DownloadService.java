@@ -11,7 +11,7 @@ import com.adhiemb.module.order.entity.Order;
 import com.adhiemb.module.order.entity.OrderItem;
 import com.adhiemb.module.order.repository.OrderRepository;
 import com.adhiemb.module.product.entity.Product;
-import com.adhiemb.module.product.entity.ProductFile;
+import com.adhiemb.module.product.entity.ProductFileData;
 import com.adhiemb.module.product.entity.ProductImage;
 import com.adhiemb.module.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,13 +29,18 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.adhiemb.storage.FstoreStorageService;
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DownloadService {
 
     private final DownloadTokenRepository downloadTokenRepository;
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final FstoreStorageService fstoreStorageService;
 
     @Transactional
     public List<DownloadToken> generateTokensForOrder(Order order) {
@@ -48,42 +53,64 @@ public class DownloadService {
             Product product = item.getProduct();
             if (product == null) continue;
 
-            List<ProductFile> files = product.getFiles();
-            if (files != null && !files.isEmpty()) {
-                for (ProductFile file : files) {
-                    Optional<DownloadToken> existingToken = downloadTokenRepository
-                            .findByUserIdAndOrderIdAndProductIdAndFileId(
-                                    order.getUser().getId(), order.getId(), product.getId(), file.getId());
+            if (item.getProductFile() != null) {
+                ProductFileData file = item.getProductFile();
+                Optional<DownloadToken> existingToken = downloadTokenRepository
+                        .findByUserIdAndOrderIdAndProductIdAndFileId(
+                                order.getUser().getId(), order.getId(), product.getId(), file.getId());
 
-                    if (existingToken.isPresent()) {
-                        tokens.add(existingToken.get());
-                    } else {
-                        DownloadToken newToken = DownloadToken.builder()
-                                .token("tok_" + UUID.randomUUID().toString().replace("-", ""))
-                                .user(order.getUser())
-                                .order(order)
-                                .product(product)
-                                .file(file)
-                                .downloadCount(0)
-                                .maxDownloads(50)
-                                .expiresAt(LocalDateTime.now().plusYears(1))
-                                .build();
-                        tokens.add(downloadTokenRepository.save(newToken));
-                    }
+                if (existingToken.isPresent()) {
+                    tokens.add(existingToken.get());
+                } else {
+                    DownloadToken newToken = DownloadToken.builder()
+                            .token("tok_" + UUID.randomUUID().toString().replace("-", ""))
+                            .user(order.getUser())
+                            .order(order)
+                            .product(product)
+                            .file(file)
+                            .downloadCount(0)
+                            .maxDownloads(null)  // null = unlimited lifetime downloads
+                            .expiresAt(null)     // null = no expiry, lifetime access
+                            .build();
+                    tokens.add(downloadTokenRepository.save(newToken));
                 }
             } else {
-                // Generic token if no specific product_file attached
-                DownloadToken newToken = DownloadToken.builder()
-                        .token("tok_" + UUID.randomUUID().toString().replace("-", ""))
-                        .user(order.getUser())
-                        .order(order)
-                        .product(product)
-                        .file(null)
-                        .downloadCount(0)
-                        .maxDownloads(50)
-                        .expiresAt(LocalDateTime.now().plusYears(1))
-                        .build();
-                tokens.add(downloadTokenRepository.save(newToken));
+                List<ProductFileData> files = product.getFiles();
+                if (files != null && !files.isEmpty()) {
+                    for (ProductFileData file : files) {
+                        Optional<DownloadToken> existingToken = downloadTokenRepository
+                                .findByUserIdAndOrderIdAndProductIdAndFileId(
+                                        order.getUser().getId(), order.getId(), product.getId(), file.getId());
+
+                        if (existingToken.isPresent()) {
+                            tokens.add(existingToken.get());
+                        } else {
+                            DownloadToken newToken = DownloadToken.builder()
+                                    .token("tok_" + UUID.randomUUID().toString().replace("-", ""))
+                                    .user(order.getUser())
+                                    .order(order)
+                                    .product(product)
+                                    .file(file)
+                                    .downloadCount(0)
+                                    .maxDownloads(null)  // null = unlimited lifetime downloads
+                                    .expiresAt(null)     // null = no expiry, lifetime access
+                                    .build();
+                            tokens.add(downloadTokenRepository.save(newToken));
+                        }
+                    }
+                } else {
+                    DownloadToken newToken = DownloadToken.builder()
+                            .token("tok_" + UUID.randomUUID().toString().replace("-", ""))
+                            .user(order.getUser())
+                            .order(order)
+                            .product(product)
+                            .file(null)
+                            .downloadCount(0)
+                            .maxDownloads(null)  // null = unlimited lifetime downloads
+                            .expiresAt(null)     // null = no expiry, lifetime access
+                            .build();
+                    tokens.add(downloadTokenRepository.save(newToken));
+                }
             }
         }
         return tokens;
@@ -158,11 +185,17 @@ public class DownloadService {
 
         validateTokenOwnership(token);
 
+        if (token.getOrder() != null && token.getOrder().getPaymentStatus() != com.adhiemb.module.payment.enums.PaymentStatus.SUCCESS) {
+            throw new com.adhiemb.exception.ForbiddenException("Download access requires a completed paid order");
+        }
+
+        // Lifetime tokens have null expiresAt — only check if explicitly set
         if (token.getExpiresAt() != null && token.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("Download token has expired");
         }
 
-        if (token.getDownloadCount() >= token.getMaxDownloads()) {
+        // Lifetime tokens have null maxDownloads — null means unlimited, never block
+        if (token.getMaxDownloads() != null && token.getDownloadCount() >= token.getMaxDownloads()) {
             throw new BadRequestException("Download limit reached for this file (" + token.getMaxDownloads() + " downloads max)");
         }
 
@@ -179,14 +212,25 @@ public class DownloadService {
         Resource resource;
 
         if (token.getFile() != null) {
-            ProductFile pf = token.getFile();
+            ProductFileData pf = token.getFile();
             fileName = pf.getOriginalFileName() != null ? pf.getOriginalFileName() : (product.getSlug() + "." + pf.getFileFormat().name().toLowerCase());
-            File physicalFile = new File(pf.getFilePath());
-            if (physicalFile.exists()) {
-                resource = new FileSystemResource(physicalFile);
+            String path = pf.getStorageKey();
+            Resource loadedResource = null;
+            if (org.springframework.util.StringUtils.hasText(path)) {
+                try {
+                    loadedResource = fstoreStorageService.loadResource(path);
+                } catch (Exception e) {
+                    log.warn("Could not load physical machine file from storage key: '{}'. Falling back to content descriptor. Error: {}", path, e.getMessage());
+                }
+            }
+
+            if (loadedResource != null && loadedResource.exists() && loadedResource.isReadable()) {
+                resource = loadedResource;
             } else {
                 String dummyContent = "ADHIEMB DIGITAL EMBROIDERY DESIGN FILE\n" +
                         "Product: " + product.getTitle() + "\n" +
+                        "File: " + (pf.getOriginalFileName() != null ? pf.getOriginalFileName() : fileName) + "\n" +
+                        "Machine Info: " + (pf.getMachineInfo() != null ? pf.getMachineInfo() : "Standard") + "\n" +
                         "Format: " + pf.getFileFormat() + "\n" +
                         "Token: " + tokenStr + "\n";
                 resource = new ByteArrayResource(dummyContent.getBytes(StandardCharsets.UTF_8));
@@ -219,12 +263,13 @@ public class DownloadService {
     }
 
     public DownloadTokenDTO mapToTokenDTO(DownloadToken token) {
-        ProductFile file = token.getFile();
+        ProductFileData file = token.getFile();
         String fileName = file != null && file.getOriginalFileName() != null
                 ? file.getOriginalFileName()
                 : (token.getProduct().getTitle() + (file != null ? "." + file.getFileFormat().name().toLowerCase() : ".dst"));
 
         String fileFormat = file != null ? file.getFileFormat().name() : "DST";
+        String machineInfo = file != null ? file.getMachineInfo() : null;
 
         return new DownloadTokenDTO(
                 token.getId(),
@@ -237,6 +282,7 @@ public class DownloadService {
                 file != null ? file.getId() : null,
                 fileName,
                 fileFormat,
+                machineInfo,
                 token.getDownloadCount(),
                 token.getMaxDownloads(),
                 token.getExpiresAt()

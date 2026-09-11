@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ChevronRight, 
   Star, 
@@ -13,7 +13,10 @@ import {
   ShieldCheck, 
   RotateCcw, 
   Cpu, 
-  ZoomIn
+  ZoomIn,
+  AlertCircle,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -21,7 +24,9 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Modal } from '@/components/ui/Modal';
 import { ProductCard } from '../components/ProductCard';
 import { usePublicProductQuery, usePublicProductsSearchQuery } from '@/features/products/hooks/useProducts';
+import { useCart } from '@/features/cart/context/CartContext';
 import { toast } from 'react-hot-toast';
+import { formatCurrency, getImageUrl } from '@/lib/utils';
 
 const COMPATIBLE_BRANDS = [
   { name: 'Tajima', description: 'Supports .DST format' },
@@ -34,11 +39,21 @@ const COMPATIBLE_BRANDS = [
 
 export function PublicProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const { addToCart, addFilesToCart } = useCart();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [isAddedToCart, setIsAddedToCart] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<(string | number)[]>([]);
 
   const { data: product, isLoading, isError } = usePublicProductQuery(slug || '');
+
+  // Initialize selected files
+  useEffect(() => {
+    if (product && product.files && product.files.length > 0) {
+      setSelectedFileIds(product.files.map((f, i) => (f.id !== undefined && f.id !== null ? f.id : i)));
+    }
+  }, [product]);
 
   // Related products query
   const { data: relatedData } = usePublicProductsSearchQuery({
@@ -46,11 +61,11 @@ export function PublicProductDetailPage() {
     size: 4,
   });
 
-  const relatedProducts = (Array.isArray(relatedData) ? relatedData : relatedData?.content || []).filter((p: any) => p.id !== product?.id);
+  const relatedProducts = (relatedData as any)?.content || (relatedData as any)?.data || (Array.isArray(relatedData) ? relatedData : []);
 
   if (isLoading) {
     return (
-      <div className="py-32 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 min-h-screen">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center">
         <Spinner size="lg" />
         <p className="text-slate-500 text-sm mt-4 font-medium">Loading embroidery design...</p>
       </div>
@@ -59,8 +74,11 @@ export function PublicProductDetailPage() {
 
   if (isError || !product) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-24 px-4 text-center">
-        <div className="max-w-md mx-auto space-y-4">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8" />
+          </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Design Not Found</h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm">
             The embroidery design pattern you are looking for may have been moved or archived.
@@ -73,21 +91,47 @@ export function PublicProductDetailPage() {
     );
   }
 
-  const primaryImg = selectedImage || product.primaryImage ||
-    (product.images && product.images.length > 0
-      ? (typeof product.images[0] === 'string' ? product.images[0] : product.images[0].url)
-      : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80');
+  const availableFiles = product.files || [];
+  const hasFiles = availableFiles.length > 0;
+  const selectedFiles = availableFiles.filter((f, i) => selectedFileIds.includes(f.id !== undefined && f.id !== null ? f.id : i));
+  const selectedTotal = selectedFiles.reduce((acc, f) => acc + (f.price !== undefined && f.price !== null ? f.price : 0), 0);
+  const effectiveDisplayPrice = selectedFiles.length > 0 ? selectedTotal : 0;
 
-  const galleryImages = product.images?.map(img => typeof img === 'string' ? img : img.url) || [primaryImg];
+  const getRawImg = (img: any): string => {
+    if (!img) return '';
+    if (typeof img === 'string') return img;
+    return img.imageUrl || img.url || '';
+  };
 
-  const handleAddToCart = () => {
+  const galleryImages = (product.images && product.images.length > 0)
+    ? product.images.map(getRawImg).filter(Boolean).map(getImageUrl)
+    : (product.primaryImage ? [getImageUrl(product.primaryImage)] : ['https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80']);
+
+  const primaryImg = selectedImage 
+    ? getImageUrl(selectedImage) 
+    : (galleryImages.length > 0 ? galleryImages[0] : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80');
+
+  const handleAddToCart = async () => {
+    if (hasFiles) {
+      if (selectedFiles.length === 0) {
+        toast.error('Please select at least one machine file to purchase');
+        return;
+      }
+      await addFilesToCart(product, selectedFiles);
+    } else {
+      await addToCart(product);
+    }
     setIsAddedToCart(true);
-    toast.success(`Added "${product.title}" to cart!`);
     setTimeout(() => setIsAddedToCart(false), 3000);
   };
 
-  const handleBuyNow = () => {
-    toast.success(`Proceeding to instant checkout for "${product.title}"`);
+  const handleBuyNow = async () => {
+    if (hasFiles && selectedFiles.length === 0) {
+      toast.error('Please select at least one machine file to purchase');
+      return;
+    }
+    await handleAddToCart();
+    navigate('/checkout');
   };
 
   return (
@@ -161,12 +205,24 @@ export function PublicProductDetailPage() {
             )}
           </div>
 
-          {/* Right Column: Title, Designer, Pricing & Cart Actions */}
+          {/* Right Column: Title, Designer, Multi-File Selection & Cart Actions */}
           <div className="lg:col-span-5 space-y-6">
             <div>
-              <Badge variant="primary" className="text-xs font-bold uppercase tracking-wider mb-2">
-                {product.categoryName || 'Embroidery Design'}
-              </Badge>
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <Badge variant="primary" className="text-xs font-bold uppercase tracking-wider">
+                  {product.categoryName || 'Embroidery Design'}
+                </Badge>
+                {product.designType && (
+                  <Badge variant="info" className="text-xs font-semibold">
+                    {product.designType}
+                  </Badge>
+                )}
+                {product.productCode && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {product.productCode}
+                  </span>
+                )}
+              </div>
 
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
                 {product.title}
@@ -206,41 +262,99 @@ export function PublicProductDetailPage() {
               <Badge variant="success" className="text-[10px]">Verified Designer</Badge>
             </div>
 
-            {/* Price & Discount Banner */}
+            {/* Multi-File Selection Checklist Section */}
+            {hasFiles ? (
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Available Machine Files
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Select individual files you wish to purchase
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedFileIds.length === availableFiles.length) {
+                        setSelectedFileIds([]);
+                      } else {
+                        setSelectedFileIds(availableFiles.map((f, i) => (f.id !== undefined && f.id !== null ? f.id : i)));
+                      }
+                    }}
+                    className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    {selectedFileIds.length === availableFiles.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {availableFiles.map((f, idx) => {
+                    const id = f.id !== undefined && f.id !== null ? f.id : idx;
+                    const isSelected = selectedFileIds.includes(id);
+                    const format = f.fileFormat || f.format || 'DST';
+                    const fileName = f.originalFileName || f.fileName || `file_${idx + 1}.${String(format).toLowerCase()}`;
+                    const price = f.price !== undefined && f.price !== null ? f.price : 0;
+
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedFileIds(selectedFileIds.filter((x) => x !== id));
+                          } else {
+                            setSelectedFileIds([...selectedFileIds, id]);
+                          }
+                        }}
+                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-500/50 shadow-xs'
+                            : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-400 shrink-0" />
+                          )}
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-slate-900 text-white shrink-0">
+                            .{format}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
+                              {f.machineInfo ? `${f.machineInfo} (${fileName})` : fileName}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                          {formatCurrency(price)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Price & Summary Banner */}
             <div className="p-6 rounded-2xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white shadow-xl space-y-2">
-              <span className="text-xs text-indigo-200 uppercase tracking-wider font-bold">
-                Instant Digital Download
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-indigo-200 uppercase tracking-wider font-bold">
+                  {hasFiles ? `Selected Files Total (${selectedFiles.length}/${availableFiles.length})` : 'Instant Digital Download'}
+                </span>
+              </div>
               <div className="flex items-baseline gap-3">
                 <span className="text-4xl font-black">
-                  ${(product.discountPrice || product.price)?.toFixed(2)}
+                  {formatCurrency(effectiveDisplayPrice)}
                 </span>
-                {product.discountPrice && (
-                  <span className="text-xl text-indigo-200/60 line-through font-bold">
-                    ${product.price.toFixed(2)}
-                  </span>
-                )}
               </div>
               <p className="text-xs text-indigo-100/70">
-                Includes all formats (.DST, .PES, .EXP, .JEF, .EMB) in a single ZIP file with embroidery production worksheet.
+                {hasFiles
+                  ? 'Includes authenticated secure machine files for download upon purchase.'
+                  : 'Includes embroidery production worksheet and all standard machine formats.'}
               </p>
-            </div>
-
-            {/* Formats Tags List */}
-            <div>
-              <label className="block text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                Included Machine Formats:
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {(product.formats || ['DST', 'PES', 'EXP', 'JEF', 'EMB', 'VP3']).map((fmt) => (
-                  <span
-                    key={fmt}
-                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 shadow-sm"
-                  >
-                    .{fmt}
-                  </span>
-                ))}
-              </div>
             </div>
 
             {/* Action Buttons: Add to Cart & Buy Now */}
@@ -255,7 +369,7 @@ export function PublicProductDetailPage() {
                 }`}
               >
                 <ShoppingCart className="w-5 h-5 mr-2" />
-                {isAddedToCart ? 'Added to Cart!' : 'Add to Cart'}
+                {isAddedToCart ? 'Added to Cart!' : (hasFiles && selectedFiles.length > 0 ? `Add Selected (${selectedFiles.length}) to Cart` : 'Add to Cart')}
               </Button>
 
               <Button
@@ -265,7 +379,7 @@ export function PublicProductDetailPage() {
                 className="w-full py-4 text-base font-bold rounded-2xl border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 dark:text-indigo-400"
               >
                 <Zap className="w-5 h-5 mr-2 text-amber-500" />
-                Buy Now (Instant Checkout)
+                Buy Selected Now (Instant Checkout)
               </Button>
             </div>
 
@@ -277,7 +391,7 @@ export function PublicProductDetailPage() {
               </div>
               <div className="flex items-center gap-2">
                 <RotateCcw className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span>Format Re-convert Guarantee</span>
+                <span>Secure Protected Download</span>
               </div>
             </div>
           </div>

@@ -10,7 +10,7 @@ export const ordersApi = {
   },
 
   getByNumber: async (orderNumber: string): Promise<ApiResponse<Order>> => {
-    const { data } = await apiClient.get(`${API_ENDPOINTS.ORDERS}/number/${orderNumber}`);
+    const { data } = await apiClient.get(`${API_ENDPOINTS.ORDERS}/${orderNumber}`);
     return data;
   },
 

@@ -20,11 +20,12 @@ public class PublicProductController {
 
     private final ProductService productService;
 
-    @GetMapping("/search")
+    @GetMapping({"", "/search"})
     public ApiResponse<PagedResponse<ProductDTO>> searchPublicProducts(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String categorySlug,
+            @RequestParam(required = false) String designType,
             @RequestParam(required = false) MachineFormat format,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
@@ -36,7 +37,7 @@ public class PublicProductController {
             Pageable pageable) {
 
         ProductFilterRequest filter = new ProductFilterRequest(
-                search, categoryId, categorySlug, format, minPrice, maxPrice, minStitch, maxStitch, featured, sortBy, sortDirection
+                search, categoryId, categorySlug, designType, format, minPrice, maxPrice, minStitch, maxStitch, featured, sortBy, sortDirection
         );
 
         return ApiResponse.success(productService.searchPublicProducts(filter, pageable));
@@ -54,7 +55,7 @@ public class PublicProductController {
         return ApiResponse.success(productService.getProductsByCategorySlug(categorySlug, pageable));
     }
 
-    @GetMapping("/{slug}")
+    @GetMapping({"/{slug}", "/slug/{slug}"})
     public ApiResponse<ProductDetailDTO> getProductBySlug(@PathVariable String slug) {
         return ApiResponse.success(productService.getProductBySlug(slug));
     }

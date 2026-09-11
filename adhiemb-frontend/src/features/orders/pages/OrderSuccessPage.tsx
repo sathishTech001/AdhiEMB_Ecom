@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useOrderByNumber } from '../hooks/useOrders';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '@/lib/utils';
 
 export const OrderSuccessPage = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
@@ -177,7 +178,7 @@ export const OrderSuccessPage = () => {
             <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
               <span>Total Paid</span>
               <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-base">
-                ${displayOrder.totalAmount?.toFixed(2)}
+                {formatCurrency(displayOrder.totalAmount || 0)}
               </span>
             </div>
           </div>

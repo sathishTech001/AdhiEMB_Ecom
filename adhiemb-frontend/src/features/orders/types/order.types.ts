@@ -49,18 +49,11 @@ export interface CreateOrderItemInput {
 }
 
 export interface CreateOrderData {
-  customerName: string;
-  customerEmail: string;
-  customerPhone?: string;
-  billingAddress?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-    country?: string;
-  };
+  billingName: string;
+  billingEmail: string;
+  billingPhone?: string;
+  billingAddress?: string;
   paymentMethod: string;
-  items: CreateOrderItemInput[];
 }
 
 export interface OrderFilters {

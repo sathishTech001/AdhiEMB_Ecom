@@ -18,9 +18,10 @@ export function formatDate(date: string | Date) {
 }
 
 export function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'INR',
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 
@@ -40,4 +41,21 @@ export function sleep(ms: number) {
 export function truncateText(text: string, length: number) {
   if (text.length <= length) return text;
   return `${text.substring(0, length)}...`;
+}
+
+export function getImageUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  if (url.startsWith('/api/')) {
+    return url;
+  }
+  if (url.startsWith('api/')) {
+    return `/${url}`;
+  }
+  if (url.startsWith('fstore/')) {
+    return `/api/public/files/${url}`;
+  }
+  return `/api/public/files/${url}`;
 }

@@ -3,7 +3,7 @@ package com.adhiemb.module.product.mapper;
 import com.adhiemb.module.category.mapper.CategoryMapper;
 import com.adhiemb.module.product.dto.*;
 import com.adhiemb.module.product.entity.Product;
-import com.adhiemb.module.product.entity.ProductFile;
+import com.adhiemb.module.product.entity.ProductFileData;
 import com.adhiemb.module.product.entity.ProductImage;
 import com.adhiemb.module.product.enums.MachineFormat;
 
@@ -28,16 +28,36 @@ public class ProductMapper {
         );
     }
 
-    public static ProductFileDTO toFileDTO(ProductFile file) {
+    public static ProductFileDTO toFileDTO(ProductFileData file) {
         if (file == null) {
             return null;
         }
         return new ProductFileDTO(
                 file.getId(),
-                file.getFilePath(),
+                file.getStorageKey(),
+                file.getStorageKey(),
                 file.getFileFormat(),
                 file.getFileSizeBytes(),
-                file.getOriginalFileName()
+                file.getOriginalFileName(),
+                file.getMachineInfo(),
+                file.getPrice(),
+                file.getIsActive()
+        );
+    }
+
+    public static ProductFileDataDTO toFileDataDTO(ProductFileData file) {
+        if (file == null) {
+            return null;
+        }
+        return new ProductFileDataDTO(
+                file.getId(),
+                file.getOriginalFileName(),
+                file.getStorageKey(),
+                file.getFileFormat(),
+                file.getMachineInfo(),
+                file.getPrice(),
+                file.getFileSizeBytes(),
+                file.getIsActive()
         );
     }
 
@@ -58,7 +78,7 @@ public class ProductMapper {
         List<MachineFormat> availableFormats = Collections.emptyList();
         if (entity.getFiles() != null && !entity.getFiles().isEmpty()) {
             availableFormats = entity.getFiles().stream()
-                    .map(ProductFile::getFileFormat)
+                    .map(ProductFileData::getFileFormat)
                     .distinct()
                     .collect(Collectors.toList());
         }
@@ -79,10 +99,9 @@ public class ProductMapper {
         return new ProductDTO(
                 entity.getId(),
                 entity.getTitle(),
+                entity.getProductCode(),
                 entity.getSlug(),
                 entity.getDescription(),
-                entity.getPrice(),
-                entity.getDiscountPrice(),
                 entity.getStitchCount(),
                 entity.getWidthMm(),
                 entity.getHeightMm(),
@@ -91,6 +110,7 @@ public class ProductMapper {
                 entity.getCategory() != null ? entity.getCategory().getId() : null,
                 entity.getCategory() != null ? entity.getCategory().getName() : null,
                 entity.getCategory() != null ? entity.getCategory().getSlug() : null,
+                entity.getDesignType(),
                 entity.getDesigner() != null ? entity.getDesigner().getId() : null,
                 designerName,
                 entity.getStatus(),
@@ -135,16 +155,16 @@ public class ProductMapper {
         return new ProductDetailDTO(
                 entity.getId(),
                 entity.getTitle(),
+                entity.getProductCode(),
                 entity.getSlug(),
                 entity.getDescription(),
-                entity.getPrice(),
-                entity.getDiscountPrice(),
                 entity.getStitchCount(),
                 entity.getWidthMm(),
                 entity.getHeightMm(),
                 entity.getColorCount(),
                 entity.getStopCount(),
                 CategoryMapper.toDTO(entity.getCategory()),
+                entity.getDesignType(),
                 entity.getDesigner() != null ? entity.getDesigner().getId() : null,
                 designerName,
                 entity.getStatus(),

@@ -7,6 +7,9 @@ public record AddToCartRequest(
     @NotNull(message = "Product ID is required")
     Long productId,
 
+    @NotNull(message = "Product file ID is required")
+    Long productFileId,
+
     @Min(value = 1, message = "Quantity must be at least 1")
     Integer quantity
 ) {

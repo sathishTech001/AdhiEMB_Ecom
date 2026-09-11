@@ -4,6 +4,7 @@ import { Input } from '../ui/Input';
 export interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  helperText?: string;
   name?: string;
   register?: any;
   registration?: any;
@@ -12,15 +13,18 @@ export interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(function FormField(
-  { label, error, register, registration, name, ...props },
+  { label, error, helperText, register, registration, name, ...props },
   ref
 ) {
   const reg = registration || (register && name ? register(name) : {});
+  const resolvedRef = ref || (props as any).ref || reg.ref;
   return (
     <Input
       label={label}
       error={error}
-      ref={ref}
+      helperText={helperText}
+      name={name || reg.name}
+      ref={resolvedRef}
       {...reg}
       {...props}
     />

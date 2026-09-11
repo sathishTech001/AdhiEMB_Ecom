@@ -37,6 +37,7 @@ import { CategoryListPage } from '@/features/categories/pages/CategoryListPage';
 // Products (Admin / Designer)
 import { ProductListPage } from '@/features/products/pages/ProductListPage';
 import { CreateProductPage } from '@/features/products/pages/CreateProductPage';
+import { EditProductPage } from '@/features/products/pages/EditProductPage';
 import { ProductDetailPage } from '@/features/products/pages/ProductDetailPage';
 import { ProductApprovalPage } from '@/features/products/pages/ProductApprovalPage';
 
@@ -129,6 +130,8 @@ export function AppRouter() {
           <Route path="/products/create" element={<CreateProductPage />} />
           <Route path="/products/approval" element={<ProductApprovalPage />} />
           <Route path="/products/:id" element={<ProductDetailPage />} />
+          <Route path="/products/:id/edit" element={<EditProductPage />} />
+          <Route path="/products/edit/:id" element={<EditProductPage />} />
 
           {/* Phase 3 Admin Orders & Payments */}
           <Route path="/orders" element={<AdminOrdersPage />} />

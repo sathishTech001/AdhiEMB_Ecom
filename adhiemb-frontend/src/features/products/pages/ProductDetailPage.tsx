@@ -13,7 +13,8 @@ import {
   Clock, 
   Download, 
   AlertTriangle, 
-  FileCheck
+  FileCheck,
+  Edit3
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +29,7 @@ import {
   useApproveOrRejectProduct, 
   useDeleteProduct 
 } from '../hooks/useProducts';
+import { formatCurrency, getImageUrl } from '@/lib/utils';
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -68,10 +70,19 @@ export function ProductDetailPage() {
     );
   }
 
-  const primaryImg = selectedImage || product.primaryImage || 
-    (product.images && product.images.length > 0 ? (typeof product.images[0] === 'string' ? product.images[0] : product.images[0].url) : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80');
+  const getRawImg = (img: any): string => {
+    if (!img) return '';
+    if (typeof img === 'string') return img;
+    return img.imageUrl || img.url || '';
+  };
 
-  const imagesList = product.images?.map(img => typeof img === 'string' ? img : img.url) || [primaryImg];
+  const imagesList = (product.images && product.images.length > 0)
+    ? product.images.map(getRawImg).filter(Boolean).map(getImageUrl)
+    : (product.primaryImage ? [getImageUrl(product.primaryImage)] : ['https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80']);
+
+  const primaryImg = selectedImage 
+    ? getImageUrl(selectedImage) 
+    : (imagesList.length > 0 ? imagesList[0] : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80');
 
   const handleApprovalSubmit = async () => {
     if (!id) return;
@@ -168,6 +179,15 @@ export function ProductDetailPage() {
 
             <Button
               variant="outline"
+              onClick={() => navigate(`/products/${product.id}/edit`)}
+              className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              <Edit3 className="w-4 h-4 mr-1.5 text-indigo-500" />
+              Edit Design
+            </Button>
+
+            <Button
+              variant="outline"
               onClick={() => setIsDeleteOpen(true)}
               className="text-red-500 border-slate-200 dark:border-slate-700 hover:bg-red-50"
             >
@@ -232,36 +252,55 @@ export function ProductDetailPage() {
 
             {product.files && product.files.length > 0 ? (
               <div className="space-y-3">
-                {product.files.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Badge variant="primary" className="font-mono text-xs px-2.5 py-1">
-                        .{file.format}
-                      </Badge>
-                      <div>
-                        <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">
-                          {file.fileName}
-                        </div>
-                        {file.fileSize && (
-                          <div className="text-xs text-slate-400">
-                            {(file.fileSize / 1024).toFixed(0)} KB
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                {product.files.map((file, index) => {
+                  const format = file.fileFormat || file.format || (file.originalFileName?.split('.').pop()?.toUpperCase()) || 'DST';
+                  const fileName = file.originalFileName || file.fileName || file.filePath?.split('/').pop() || `design_${index + 1}.${String(format).toLowerCase()}`;
+                  const sizeBytes = file.fileSizeBytes || file.fileSize;
+                  const isZip = String(format).toUpperCase() === 'ZIP' || fileName.toLowerCase().endsWith('.zip');
 
-                    <a
-                      href={file.fileUrl}
-                      download
-                      className="p-2 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
                     >
-                      <Download className="w-4 h-4" />
-                    </a>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3">
+                        <Badge variant={isZip ? 'warning' : 'primary'} className="font-mono text-xs px-2.5 py-1">
+                          .{String(format).toUpperCase()}
+                        </Badge>
+                        <div>
+                          <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">
+                            {fileName}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {file.machineInfo && (
+                              <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md">
+                                {file.machineInfo}
+                              </span>
+                            )}
+                            {file.price !== undefined && file.price > 0 && (
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                {formatCurrency(file.price)}
+                              </span>
+                            )}
+                            {sizeBytes ? (
+                              <span className="text-xs text-slate-400">
+                                ({(sizeBytes / 1024).toFixed(0)} KB)
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      <a
+                        href={file.filePath || file.storageKey || file.fileUrl || '#'}
+                        download
+                        className="p-2 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400 hover:bg-indigo-100 transition-colors"
+                      >
+                        <Download className="w-4 h-4" />
+                      </a>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="flex items-center gap-2 flex-wrap">
@@ -279,22 +318,24 @@ export function ProductDetailPage() {
         <div className="lg:col-span-5 space-y-6">
           <Card className="p-6 space-y-6">
             <div>
-              <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                {product.categoryName || 'Embroidery Design'}
-              </span>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
-                {product.title}
-              </h2>
-              <div className="flex items-baseline gap-3 mt-3">
-                <span className="text-3xl font-black text-slate-900 dark:text-white">
-                  ${product.price?.toFixed(2)}
+              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                  {product.categoryName || 'Embroidery Design'}
                 </span>
-                {product.discountPrice && (
-                  <span className="text-lg text-slate-400 line-through">
-                    ${product.discountPrice.toFixed(2)}
+                {product.designType && (
+                  <Badge variant="info" className="text-xs">
+                    {product.designType}
+                  </Badge>
+                )}
+                {product.productCode && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {product.productCode}
                   </span>
                 )}
               </div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                {product.title}
+              </h2>
             </div>
 
             {/* Technical Specifications Grid */}

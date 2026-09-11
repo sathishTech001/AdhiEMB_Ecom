@@ -1,6 +1,6 @@
 import { SearchInput } from '@/components/ui/SearchInput';
 import { MachineFormat } from '@/features/products/types/product.types';
-import { CategoryTree } from '@/features/categories/types/category.types';
+import { Category } from '@/features/categories/types/category.types';
 import { RefreshCw } from 'lucide-react';
 
 const FORMAT_OPTIONS: (MachineFormat | 'ALL')[] = ['ALL', 'DST', 'PES', 'EXP', 'JEF', 'EMB'];
@@ -18,7 +18,7 @@ interface ProductFilterBarProps {
   onMaxPriceChange: (value: string) => void;
   sortBy: string;
   onSortByChange: (value: string) => void;
-  categories: CategoryTree[];
+  categories: Category[];
   onResetFilters: () => void;
 }
 
@@ -72,13 +72,13 @@ export const ProductFilterBar = ({
           <select
             value={sortBy}
             onChange={(e) => onSortByChange(e.target.value)}
-            className="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 text-sm font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="newest">Sort: Newest First</option>
-            <option value="price_low">Sort: Price Low to High</option>
-            <option value="price_high">Sort: Price High to Low</option>
-            <option value="popularity">Sort: Most Popular</option>
-            <option value="rating">Sort: Top Rated</option>
+            <option value="newest">Sort: Newest</option>
+            <option value="price_low">Price: Low to High</option>
+            <option value="price_high">Price: High to Low</option>
+            <option value="popularity">Most Popular</option>
+            <option value="rating">Top Rated</option>
           </select>
         </div>
       </div>
@@ -112,7 +112,7 @@ export const ProductFilterBar = ({
         {/* Price Range & Reset */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Price ($):</span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Price (₹):</span>
             <input
               type="number"
               placeholder="Min"

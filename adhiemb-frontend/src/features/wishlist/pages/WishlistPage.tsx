@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useCart } from '@/features/cart/context/CartContext';
-import { formatCurrency } from '@/lib/utils';
+import { getImageUrl } from '@/lib/utils';
 
 export function WishlistPage() {
   const { data: wishlistItems = [], isLoading } = useWishlistQuery();
@@ -74,9 +74,9 @@ export function WishlistPage() {
                 >
                   <div className="space-y-3">
                     <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
-                      {product.primaryImage ? (
+                      {(product.primaryImageUrl || product.primaryImage) ? (
                         <img
-                          src={product.primaryImage}
+                          src={getImageUrl(product.primaryImageUrl || product.primaryImage)}
                           alt={product.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -105,10 +105,7 @@ export function WishlistPage() {
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                    <span className="text-lg font-black text-slate-900 dark:text-white">
-                      {formatCurrency(product.discountPrice || product.price)}
-                    </span>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
 
                     <Button
                       size="sm"

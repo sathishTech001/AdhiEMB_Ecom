@@ -8,12 +8,12 @@ import com.adhiemb.module.category.entity.Category;
 import com.adhiemb.module.category.repository.CategoryRepository;
 import com.adhiemb.module.product.dto.*;
 import com.adhiemb.module.product.entity.Product;
-import com.adhiemb.module.product.entity.ProductFile;
+import com.adhiemb.module.product.entity.ProductFileData;
 import com.adhiemb.module.product.entity.ProductImage;
 import com.adhiemb.module.product.enums.MachineFormat;
 import com.adhiemb.module.product.enums.ProductStatus;
 import com.adhiemb.module.product.mapper.ProductMapper;
-import com.adhiemb.module.product.repository.ProductFileRepository;
+import com.adhiemb.module.product.repository.ProductFileDataRepository;
 import com.adhiemb.module.product.repository.ProductImageRepository;
 import com.adhiemb.module.product.repository.ProductRepository;
 import com.adhiemb.module.user.entity.User;
@@ -42,7 +42,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductImageRepository productImageRepository;
-    private final ProductFileRepository productFileRepository;
+    private final ProductFileDataRepository productFileDataRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final com.adhiemb.module.notification.service.NotificationService notificationService;
@@ -93,18 +93,6 @@ public class ProductService {
     @Transactional
     @com.adhiemb.module.auditlog.annotation.Auditable(action = "PRODUCT_CREATE", module = "PRODUCT", entityType = "Product")
     public ProductDetailDTO createProduct(CreateProductRequest request, Long designerId) {
-        if (request.price() != null && request.price().compareTo(BigDecimal.ZERO) < 0) {
-            throw new BadRequestException("Product price cannot be negative");
-        }
-        if (request.discountPrice() != null) {
-            if (request.discountPrice().compareTo(BigDecimal.ZERO) < 0) {
-                throw new BadRequestException("Discount price cannot be negative");
-            }
-            if (request.price() != null && request.discountPrice().compareTo(request.price()) > 0) {
-                throw new BadRequestException("Discount price cannot be greater than regular price");
-            }
-        }
-
         Category category = categoryRepository.findById(request.categoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.categoryId()));
 
@@ -118,20 +106,39 @@ public class ProductService {
             slug = baseSlug + "-" + counter++;
         }
 
+        if (StringUtils.hasText(request.productCode())) {
+            if (productRepository.existsByProductCode(request.productCode().trim())) {
+                throw new BadRequestException("Product code already exists: " + request.productCode().trim());
+            }
+        }
+
+        if (request.files() != null && !request.files().isEmpty()) {
+            for (CreateProductFileRequest f : request.files()) {
+                if (f.price() == null) {
+                    throw new BadRequestException("Price is required for every machine file (" + (f.fileName() != null ? f.fileName() : "file") + ")");
+                }
+                if (f.price().compareTo(BigDecimal.ZERO) < 0) {
+                    throw new BadRequestException("Machine file price cannot be negative for file: " + (f.fileName() != null ? f.fileName() : "file"));
+                }
+            }
+        }
+
+        ProductStatus initialStatus = request.status() != null ? request.status() : ProductStatus.DRAFT;
+
         Product product = Product.builder()
                 .title(request.title())
+                .productCode(request.productCode() != null ? request.productCode().trim() : null)
                 .slug(slug)
                 .description(request.description())
-                .price(request.price())
-                .discountPrice(request.discountPrice())
                 .stitchCount(request.stitchCount() != null ? request.stitchCount() : 0)
                 .widthMm(request.widthMm())
                 .heightMm(request.heightMm())
                 .colorCount(request.colorCount() != null ? request.colorCount() : 1)
                 .stopCount(request.stopCount() != null ? request.stopCount() : 1)
                 .category(category)
+                .designType(request.designType())
                 .designer(designer)
-                .status(ProductStatus.DRAFT)
+                .status(initialStatus)
                 .isFeatured(false)
                 .downloadsCount(0)
                 .viewCount(0)
@@ -156,6 +163,44 @@ public class ProductService {
             savedProduct = productRepository.save(savedProduct);
         }
 
+        if (request.files() != null && !request.files().isEmpty()) {
+            for (CreateProductFileRequest f : request.files()) {
+                String originalName = StringUtils.hasText(f.originalFileName()) ? f.originalFileName() : f.fileName();
+                if (!StringUtils.hasText(originalName)) {
+                    originalName = "embroidery_design.dst";
+                }
+
+                String storageKey = StringUtils.hasText(f.storageKey()) ? f.storageKey() : 
+                        (StringUtils.hasText(f.filePath()) ? f.filePath() : 
+                        (StringUtils.hasText(f.fileUrl()) && !f.fileUrl().equals("#") ? f.fileUrl() : originalName));
+
+                MachineFormat fmt = MachineFormat.DST;
+                try {
+                    if (f.fileFormat() != null) {
+                        fmt = MachineFormat.valueOf(f.fileFormat().toUpperCase());
+                    }
+                } catch (Exception ignored) {}
+
+                BigDecimal filePrice = f.price() != null && f.price().compareTo(BigDecimal.ZERO) >= 0 ? f.price() : BigDecimal.ZERO;
+                Long sizeBytes = f.fileSizeBytes() != null ? f.fileSizeBytes() : (f.fileSize() != null ? f.fileSize() : 0L);
+                String machineInfo = StringUtils.hasText(f.machineInfo()) ? f.machineInfo().trim() : null;
+
+                ProductFileData pfd = ProductFileData.builder()
+                        .product(savedProduct)
+                        .originalFileName(originalName)
+                        .storageKey(storageKey)
+                        .fileFormat(fmt)
+                        .machineInfo(machineInfo)
+                        .price(filePrice)
+                        .fileSizeBytes(sizeBytes)
+                        .isActive(true)
+                        .build();
+                productFileDataRepository.save(pfd);
+                savedProduct.getFiles().add(pfd);
+            }
+            savedProduct = productRepository.save(savedProduct);
+        }
+
         return ProductMapper.toDetailDTO(savedProduct);
     }
 
@@ -166,19 +211,6 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
         verifyOwnerOrAdmin(product, currentUserId);
-
-        if (request.price() != null && request.price().compareTo(BigDecimal.ZERO) < 0) {
-            throw new BadRequestException("Product price cannot be negative");
-        }
-        if (request.discountPrice() != null) {
-            if (request.discountPrice().compareTo(BigDecimal.ZERO) < 0) {
-                throw new BadRequestException("Discount price cannot be negative");
-            }
-            BigDecimal effectivePrice = request.price() != null ? request.price() : product.getPrice();
-            if (effectivePrice != null && request.discountPrice().compareTo(effectivePrice) > 0) {
-                throw new BadRequestException("Discount price cannot be greater than regular price");
-            }
-        }
 
         if (StringUtils.hasText(request.title()) && !product.getTitle().equals(request.title())) {
             product.setTitle(request.title());
@@ -193,14 +225,6 @@ public class ProductService {
 
         if (StringUtils.hasText(request.description())) {
             product.setDescription(request.description());
-        }
-
-        if (request.price() != null) {
-            product.setPrice(request.price());
-        }
-
-        if (request.discountPrice() != null) {
-            product.setDiscountPrice(request.discountPrice());
         }
 
         if (request.stitchCount() != null) {
@@ -221,6 +245,18 @@ public class ProductService {
 
         if (request.stopCount() != null) {
             product.setStopCount(request.stopCount());
+        }
+
+        if (StringUtils.hasText(request.productCode())) {
+            String trimmedCode = request.productCode().trim();
+            if (productRepository.existsByProductCodeAndIdNot(trimmedCode, id)) {
+                throw new BadRequestException("Product code already exists: " + trimmedCode);
+            }
+            product.setProductCode(trimmedCode);
+        }
+
+        if (request.designType() != null) {
+            product.setDesignType(request.designType());
         }
 
         if (request.categoryId() != null && !request.categoryId().equals(product.getCategory().getId())) {
@@ -244,6 +280,56 @@ public class ProductService {
             }
         }
 
+        if (request.files() != null) {
+            for (CreateProductFileRequest f : request.files()) {
+                if (f.price() == null) {
+                    throw new BadRequestException("Price is required for every machine file (" + (f.fileName() != null ? f.fileName() : "file") + ")");
+                }
+                if (f.price().compareTo(BigDecimal.ZERO) < 0) {
+                    throw new BadRequestException("Machine file price cannot be negative for file: " + (f.fileName() != null ? f.fileName() : "file"));
+                }
+            }
+
+            product.getFiles().clear();
+            BigDecimal minFilePrice = null;
+            for (CreateProductFileRequest f : request.files()) {
+                String originalName = StringUtils.hasText(f.originalFileName()) ? f.originalFileName() : f.fileName();
+                if (!StringUtils.hasText(originalName)) {
+                    originalName = "embroidery_design.dst";
+                }
+
+                String storageKey = StringUtils.hasText(f.storageKey()) ? f.storageKey() : 
+                        (StringUtils.hasText(f.filePath()) ? f.filePath() : 
+                        (StringUtils.hasText(f.fileUrl()) && !f.fileUrl().equals("#") ? f.fileUrl() : originalName));
+
+                MachineFormat fmt = MachineFormat.DST;
+                try {
+                    if (f.fileFormat() != null) {
+                        fmt = MachineFormat.valueOf(f.fileFormat().toUpperCase());
+                    }
+                } catch (Exception ignored) {}
+
+                BigDecimal filePrice = f.price();
+                if (minFilePrice == null || filePrice.compareTo(minFilePrice) < 0) {
+                    minFilePrice = filePrice;
+                }
+                Long sizeBytes = f.fileSizeBytes() != null ? f.fileSizeBytes() : (f.fileSize() != null ? f.fileSize() : 0L);
+                String machineInfo = StringUtils.hasText(f.machineInfo()) ? f.machineInfo().trim() : null;
+
+                ProductFileData pfd = ProductFileData.builder()
+                        .product(product)
+                        .originalFileName(originalName)
+                        .storageKey(storageKey)
+                        .fileFormat(fmt)
+                        .machineInfo(machineInfo)
+                        .price(filePrice)
+                        .fileSizeBytes(sizeBytes)
+                        .isActive(true)
+                        .build();
+                product.getFiles().add(pfd);
+            }
+        }
+
         Product updatedProduct = productRepository.save(product);
         return ProductMapper.toDetailDTO(updatedProduct);
     }
@@ -258,6 +344,14 @@ public class ProductService {
 
         if (product.getStatus() != ProductStatus.DRAFT && product.getStatus() != ProductStatus.REJECTED) {
             throw new BadRequestException("Product status must be DRAFT or REJECTED to submit for approval");
+        }
+
+        if (product.getFiles() == null || product.getFiles().isEmpty()) {
+            throw new BadRequestException("Product must have at least one machine embroidery file attached before submitting for approval");
+        }
+
+        if (product.getImages() == null || product.getImages().isEmpty()) {
+            throw new BadRequestException("Product must have at least one preview image attached before submitting for approval");
         }
 
         product.setStatus(ProductStatus.PENDING_APPROVAL);
@@ -331,15 +425,16 @@ public class ProductService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
 
-        ProductFile productFile = ProductFile.builder()
+        ProductFileData productFile = ProductFileData.builder()
                 .product(product)
-                .filePath(filePath)
+                .storageKey(filePath)
                 .fileFormat(format)
                 .fileSizeBytes(fileSize != null ? fileSize : 0L)
-                .originalFileName(originalName)
+                .originalFileName(originalName != null ? originalName : "design_file")
+                .isActive(true)
                 .build();
 
-        ProductFile savedFile = productFileRepository.save(productFile);
+        ProductFileData savedFile = productFileDataRepository.save(productFile);
         return ProductMapper.toFileDTO(savedFile);
     }
 
@@ -389,18 +484,26 @@ public class ProductService {
                     predicates.add(cb.equal(root.get("category").get("slug"), filter.categorySlug()));
                 }
 
+                if (StringUtils.hasText(filter.designType())) {
+                    predicates.add(cb.equal(cb.lower(root.get("designType")), filter.designType().toLowerCase()));
+                }
+
                 if (filter.format() != null) {
-                    Join<Product, ProductFile> fileJoin = root.join("files", JoinType.INNER);
+                    Join<Product, ProductFileData> fileJoin = root.join("files", JoinType.INNER);
                     predicates.add(cb.equal(fileJoin.get("fileFormat"), filter.format()));
                     query.distinct(true);
                 }
 
                 if (filter.minPrice() != null) {
-                    predicates.add(cb.greaterThanOrEqualTo(root.get("price"), filter.minPrice()));
+                    Join<Product, ProductFileData> fileJoin = root.join("files", JoinType.INNER);
+                    predicates.add(cb.greaterThanOrEqualTo(fileJoin.get("price"), filter.minPrice()));
+                    query.distinct(true);
                 }
 
                 if (filter.maxPrice() != null) {
-                    predicates.add(cb.lessThanOrEqualTo(root.get("price"), filter.maxPrice()));
+                    Join<Product, ProductFileData> fileJoin = root.join("files", JoinType.INNER);
+                    predicates.add(cb.lessThanOrEqualTo(fileJoin.get("price"), filter.maxPrice()));
+                    query.distinct(true);
                 }
 
                 if (filter.minStitch() != null) {

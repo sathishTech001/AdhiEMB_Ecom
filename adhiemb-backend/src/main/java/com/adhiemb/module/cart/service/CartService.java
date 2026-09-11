@@ -10,7 +10,9 @@ import com.adhiemb.module.cart.entity.CartItem;
 import com.adhiemb.module.cart.repository.CartItemRepository;
 import com.adhiemb.module.cart.repository.CartRepository;
 import com.adhiemb.module.product.entity.Product;
+import com.adhiemb.module.product.entity.ProductFileData;
 import com.adhiemb.module.product.entity.ProductImage;
+import com.adhiemb.module.product.repository.ProductFileDataRepository;
 import com.adhiemb.module.product.repository.ProductRepository;
 import com.adhiemb.module.user.entity.User;
 import com.adhiemb.module.user.repository.UserRepository;
@@ -30,6 +32,7 @@ public class CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+    private final ProductFileDataRepository productFileDataRepository;
     private final UserRepository userRepository;
 
     @Transactional
@@ -55,21 +58,37 @@ public class CartService {
             throw new BadRequestException("Only approved products can be added to cart");
         }
 
+        if (request.productFileId() == null) {
+            throw new BadRequestException("Machine file ID (productFileId) is required to add file to cart");
+        }
+
+        ProductFileData productFile = productFileDataRepository.findById(request.productFileId())
+                .orElseThrow(() -> new ResourceNotFoundException("ProductFileData", "id", request.productFileId()));
+
+        if (!productFile.getProduct().getId().equals(product.getId())) {
+            throw new BadRequestException("Selected file does not belong to this product");
+        }
+
+        if (!Boolean.TRUE.equals(productFile.getIsActive())) {
+            throw new BadRequestException("Selected file is inactive or unavailable");
+        }
+
         Cart cart = getOrCreateCartEntity(userId, sessionId);
 
-        Optional<CartItem> existingItemOpt = cartItemRepository.findByCartIdAndProductId(cart.getId(), product.getId());
-
-        int quantityToAdd = request.quantity() != null ? request.quantity() : 1;
+        Optional<CartItem> existingItemOpt = request.productFileId() != null
+                ? cartItemRepository.findByCartIdAndProductIdAndProductFileId(cart.getId(), product.getId(), request.productFileId())
+                : cartItemRepository.findByCartIdAndProductIdAndProductFileIsNull(cart.getId(), product.getId());
 
         if (existingItemOpt.isPresent()) {
             CartItem item = existingItemOpt.get();
-            item.setQuantity(item.getQuantity() + quantityToAdd);
+            item.setQuantity(1);
             cartItemRepository.save(item);
         } else {
             CartItem newItem = CartItem.builder()
                     .cart(cart)
                     .product(product)
-                    .quantity(quantityToAdd)
+                    .productFile(productFile)
+                    .quantity(1)
                     .build();
             cart.getItems().add(newItem);
             cartItemRepository.save(newItem);
@@ -92,7 +111,7 @@ public class CartService {
             throw new BadRequestException("Item does not belong to the user's cart");
         }
 
-        cartItem.setQuantity(quantity);
+        cartItem.setQuantity(1);
         cartItemRepository.save(cartItem);
 
         return mapToCartDTO(cartRepository.findById(cart.getId()).orElse(cart));
@@ -168,8 +187,11 @@ public class CartService {
 
     private void mergeCarts(Cart guestCart, Cart userCart) {
         for (CartItem guestItem : guestCart.getItems()) {
-            Optional<CartItem> existingUserItem = cartItemRepository.findByCartIdAndProductId(
-                    userCart.getId(), guestItem.getProduct().getId());
+            Long fileId = guestItem.getProductFile() != null ? guestItem.getProductFile().getId() : null;
+            Optional<CartItem> existingUserItem = fileId != null
+                    ? cartItemRepository.findByCartIdAndProductIdAndProductFileId(userCart.getId(), guestItem.getProduct().getId(), fileId)
+                    : cartItemRepository.findByCartIdAndProductIdAndProductFileIsNull(userCart.getId(), guestItem.getProduct().getId());
+
             if (existingUserItem.isPresent()) {
                 CartItem item = existingUserItem.get();
                 item.setQuantity(item.getQuantity() + guestItem.getQuantity());
@@ -178,6 +200,7 @@ public class CartService {
                 CartItem newItem = CartItem.builder()
                         .cart(userCart)
                         .product(guestItem.getProduct())
+                        .productFile(guestItem.getProductFile())
                         .quantity(guestItem.getQuantity())
                         .build();
                 userCart.getItems().add(newItem);
@@ -195,9 +218,9 @@ public class CartService {
         if (cart.getItems() != null) {
             for (CartItem item : cart.getItems()) {
                 Product product = item.getProduct();
-                BigDecimal effectivePrice = product.getDiscountPrice() != null && product.getDiscountPrice().compareTo(BigDecimal.ZERO) > 0
-                        ? product.getDiscountPrice()
-                        : product.getPrice();
+                ProductFileData file = item.getProductFile();
+
+                BigDecimal effectivePrice = file != null && file.getPrice() != null ? file.getPrice() : BigDecimal.ZERO;
 
                 BigDecimal itemTotal = effectivePrice.multiply(BigDecimal.valueOf(item.getQuantity()));
                 subtotal = subtotal.add(itemTotal);
@@ -215,10 +238,14 @@ public class CartService {
                 itemDTOs.add(new CartItemDTO(
                         item.getId(),
                         product.getId(),
+                        file != null ? file.getId() : null,
                         product.getTitle(),
                         product.getSlug(),
-                        product.getPrice(),
-                        product.getDiscountPrice(),
+                        file != null && file.getFileFormat() != null ? file.getFileFormat().name() : null,
+                        file != null ? file.getOriginalFileName() : null,
+                        file != null ? file.getMachineInfo() : null,
+                        effectivePrice,
+                        null,
                         primaryImageUrl,
                         item.getQuantity(),
                         itemTotal

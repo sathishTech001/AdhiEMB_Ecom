@@ -17,10 +17,23 @@ public class PublicFileController {
 
     private final StorageService storageService;
 
+    private static final java.util.Set<String> PROTECTED_MACHINE_EXTENSIONS = java.util.Set.of(
+            ".dst", ".pes", ".exp", ".jef", ".emb", ".vp3", ".hus", ".xxx", ".zip", ".rar"
+    );
+
     @GetMapping("/**")
     public ResponseEntity<Resource> getFile(HttpServletRequest request) {
         String fullPath = request.getRequestURI();
         String path = fullPath.substring(fullPath.indexOf("/api/public/files/") + "/api/public/files/".length());
+
+        String lowerPath = path.toLowerCase();
+        for (String ext : PROTECTED_MACHINE_EXTENSIONS) {
+            if (lowerPath.endsWith(ext)) {
+                log.warn("Security Alert: Direct unauthenticated public access attempt to machine embroidery file blocked: {}", path);
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+            }
+        }
+
         Resource resource = storageService.load(path);
 
         String contentType = null;

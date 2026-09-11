@@ -24,9 +24,19 @@ public class OrderItem extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_file_id")
+    private com.adhiemb.module.product.entity.ProductFileData productFile;
+
     @Column(name = "product_title", nullable = false)
     private String productTitle;
 
     @Column(name = "product_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal productPrice;
+
+    @Column(name = "machine_info", length = 150)
+    private String machineInfo;
+
+    @Column(name = "file_format", length = 20)
+    private String fileFormat;
 }

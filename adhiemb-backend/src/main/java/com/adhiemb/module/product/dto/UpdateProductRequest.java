@@ -5,14 +5,15 @@ import java.util.List;
 
 public record UpdateProductRequest(
         String title,
+        String productCode,
         String description,
-        BigDecimal price,
-        BigDecimal discountPrice,
         Integer stitchCount,
         BigDecimal widthMm,
         BigDecimal heightMm,
         Integer colorCount,
         Integer stopCount,
         Long categoryId,
-        List<String> imageUrls
+        String designType,
+        List<String> imageUrls,
+        List<CreateProductFileRequest> files
 ) {}

@@ -4,23 +4,29 @@ import { cn } from '@/lib/utils';
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, leftIcon, rightIcon, id, ...props }, ref) => {
+  ({ className, label, error, helperText, leftIcon, rightIcon, id, ...props }, ref) => {
     const inputId = id || Math.random().toString(36).substring(7);
 
     return (
       <div className="w-full flex flex-col gap-1.5">
         {label && (
-          <label
-            htmlFor={inputId}
-            className="block text-sm font-semibold text-slate-700 dark:text-slate-200"
-          >
-            {label}
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label
+              htmlFor={inputId}
+              className="block text-sm font-semibold text-slate-700 dark:text-slate-200"
+            >
+              {label}
+            </label>
+            {helperText && (
+              <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">{helperText}</span>
+            )}
+          </div>
         )}
         <div className="relative w-full">
           {leftIcon && (

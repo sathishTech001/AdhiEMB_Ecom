@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ProductFilterBar } from '../components/ProductFilterBar';
 import { ProductGrid } from '../components/ProductGrid';
+import { DesignTypeFilterPanel } from '../components/DesignTypeFilterPanel';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePublicProductsSearchQuery } from '@/features/products/hooks/useProducts';
 import { usePublicCategoryTreeQuery } from '@/features/categories/hooks/useCategories';
@@ -10,6 +11,7 @@ import { Sparkles } from 'lucide-react';
 export function ProductCatalogPage() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedDesignType, setSelectedDesignType] = useState('');
   const [selectedFormat, setSelectedFormat] = useState<MachineFormat | 'ALL'>('ALL');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -24,6 +26,7 @@ export function ProductCatalogPage() {
   const { data: pagedResponse, isLoading } = usePublicProductsSearchQuery({
     search: search || undefined,
     categoryId: selectedCategory || undefined,
+    designType: selectedDesignType || undefined,
     format: selectedFormat === 'ALL' ? undefined : selectedFormat,
     minPrice: minPrice ? parseFloat(minPrice) : undefined,
     maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
@@ -32,13 +35,14 @@ export function ProductCatalogPage() {
     size: pageSize,
   });
 
-  const products = pagedResponse?.content || [];
-  const totalPages = pagedResponse?.totalPages || 1;
-  const totalElements = pagedResponse?.totalElements || 0;
+  const products = Array.isArray(pagedResponse) ? pagedResponse : pagedResponse?.content || [];
+  const totalPages = (pagedResponse as any)?.totalPages || 1;
+  const totalElements = (pagedResponse as any)?.totalElements || products.length;
 
   const handleResetFilters = () => {
     setSearch('');
     setSelectedCategory('');
+    setSelectedDesignType('');
     setSelectedFormat('ALL');
     setMinPrice('');
     setMaxPrice('');
@@ -67,68 +71,84 @@ export function ProductCatalogPage() {
         </div>
       </section>
 
-      {/* Main Catalog Workspace Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* Filter Bar */}
-        <ProductFilterBar
-          search={search}
-          onSearchChange={(val) => {
-            setSearch(val);
-            setPage(0);
-          }}
-          selectedCategory={selectedCategory}
-          onCategoryChange={(val) => {
-            setSelectedCategory(val);
-            setPage(0);
-          }}
-          selectedFormat={selectedFormat}
-          onFormatChange={(fmt) => {
-            setSelectedFormat(fmt);
-            setPage(0);
-          }}
-          minPrice={minPrice}
-          onMinPriceChange={(val) => {
-            setMinPrice(val);
-            setPage(0);
-          }}
-          maxPrice={maxPrice}
-          onMaxPriceChange={(val) => {
-            setMaxPrice(val);
-            setPage(0);
-          }}
-          sortBy={sortBy}
-          onSortByChange={(val) => {
-            setSortBy(val);
-            setPage(0);
-          }}
-          categories={categoriesTree}
-          onResetFilters={handleResetFilters}
-        />
-
-        {/* Product Grid */}
-        <ProductGrid
-          products={products}
-          isLoading={isLoading}
-          emptyTitle="No Embroidery Patterns Found"
-          emptyDescription="Try broadening your search query or removing active category/format filters."
-        />
-
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex justify-center pt-8">
-            <Pagination
-              currentPage={page}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              totalElements={totalElements}
-              onPageChange={(newPage) => {
-                setPage(newPage);
-                window.scrollTo({ top: 300, behavior: 'smooth' });
+      {/* Main Catalog Workspace Container with 2-Column Responsive Layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Persistent Design Type Filter Panel */}
+          <aside className="lg:col-span-3 lg:sticky lg:top-24 space-y-6">
+            <DesignTypeFilterPanel
+              selectedDesignType={selectedDesignType}
+              onSelectDesignType={(type) => {
+                setSelectedDesignType(type);
+                setPage(0);
               }}
-              onPageSizeChange={() => {}}
             />
-          </div>
-        )}
+          </aside>
+
+          {/* Right Column: Search, Category, Sort, Machine Formats & Products Grid */}
+          <main className="lg:col-span-9 space-y-6">
+            {/* Top Filter Bar */}
+            <ProductFilterBar
+              search={search}
+              onSearchChange={(val) => {
+                setSearch(val);
+                setPage(0);
+              }}
+              selectedCategory={selectedCategory}
+              onCategoryChange={(val) => {
+                setSelectedCategory(val);
+                setPage(0);
+              }}
+              selectedFormat={selectedFormat}
+              onFormatChange={(fmt) => {
+                setSelectedFormat(fmt);
+                setPage(0);
+              }}
+              minPrice={minPrice}
+              onMinPriceChange={(val) => {
+                setMinPrice(val);
+                setPage(0);
+              }}
+              maxPrice={maxPrice}
+              onMaxPriceChange={(val) => {
+                setMaxPrice(val);
+                setPage(0);
+              }}
+              sortBy={sortBy}
+              onSortByChange={(val) => {
+                setSortBy(val);
+                setPage(0);
+              }}
+              categories={categoriesTree}
+              onResetFilters={handleResetFilters}
+            />
+
+            {/* Product Grid */}
+            <ProductGrid
+              products={products}
+              isLoading={isLoading}
+              emptyTitle="No Embroidery Patterns Found"
+              emptyDescription="Try broadening your search query or removing active category/format filters."
+            />
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center pt-8">
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalElements={totalElements}
+                  onPageChange={(newPage) => {
+                    setPage(newPage);
+                    window.scrollTo({ top: 300, behavior: 'smooth' });
+                  }}
+                  onPageSizeChange={() => {}}
+                />
+              </div>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   );

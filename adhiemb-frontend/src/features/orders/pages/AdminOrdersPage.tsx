@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAdminOrders, useUpdateOrderStatus } from '../hooks/useOrders';
 import { Order, OrderStatus } from '../types/order.types';
+import { formatCurrency } from '@/lib/utils';
 
 export const AdminOrdersPage = () => {
   const [activeTab, setActiveTab] = useState<string>('ALL');
@@ -260,7 +261,7 @@ export const AdminOrdersPage = () => {
                     </td>
 
                     <td className="py-4 px-6 font-extrabold text-slate-900 dark:text-white">
-                      ${ord.totalAmount.toFixed(2)}
+                      {formatCurrency(ord.totalAmount)}
                     </td>
 
                     <td className="py-4 px-6">{getStatusBadge(ord.status)}</td>
@@ -333,7 +334,7 @@ export const AdminOrdersPage = () => {
                     <p className="font-bold text-slate-900 dark:text-white">{item.productTitle}</p>
                     <p className="text-slate-500">Format: {item.format || 'DST'}</p>
                   </div>
-                  <span className="font-bold text-slate-900 dark:text-white">${item.totalPrice.toFixed(2)}</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(item.totalPrice)}</span>
                 </div>
               ))}
             </div>

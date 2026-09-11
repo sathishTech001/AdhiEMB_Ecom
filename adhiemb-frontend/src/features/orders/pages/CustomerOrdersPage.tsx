@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useUserOrders } from '../hooks/useOrders';
 import { Order } from '../types/order.types';
+import { formatCurrency } from '@/lib/utils';
 
 export const CustomerOrdersPage = () => {
   const { data: userOrders, isLoading } = useUserOrders();
@@ -183,7 +184,7 @@ export const CustomerOrdersPage = () => {
                       </td>
 
                       <td className="py-4 px-6 font-extrabold text-slate-900 dark:text-white">
-                        ${ord.totalAmount.toFixed(2)}
+                        {formatCurrency(ord.totalAmount)}
                       </td>
 
                       <td className="py-4 px-6 text-right space-x-2">
@@ -243,7 +244,7 @@ export const CustomerOrdersPage = () => {
                     <p className="font-semibold text-slate-900 dark:text-white">{item.productTitle}</p>
                     <p className="text-xs text-slate-500">Format: {item.format || 'DST'} • Qty: {item.quantity}</p>
                   </div>
-                  <span className="font-bold text-slate-900 dark:text-white">${item.totalPrice.toFixed(2)}</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(item.totalPrice)}</span>
                 </div>
               ))}
             </div>
@@ -259,7 +260,7 @@ export const CustomerOrdersPage = () => {
               </div>
               <div className="flex justify-between text-base font-extrabold text-slate-900 dark:text-white pt-2 border-t">
                 <span>Total</span>
-                <span className="text-indigo-600 dark:text-indigo-400">${selectedOrder.totalAmount.toFixed(2)}</span>
+                <span className="text-indigo-600 dark:text-indigo-400">{formatCurrency(selectedOrder.totalAmount)}</span>
               </div>
             </div>
 

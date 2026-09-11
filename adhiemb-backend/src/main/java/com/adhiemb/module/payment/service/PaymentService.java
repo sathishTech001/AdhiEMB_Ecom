@@ -44,7 +44,7 @@ public class PaymentService {
                 .paymentNumber(paymentNumber)
                 .paymentMethod(request.paymentMethod())
                 .amount(order.getTotalAmount())
-                .currency("USD")
+                .currency("INR")
                 .gatewayOrderId(gatewayOrderId)
                 .status(PaymentStatus.INITIATED)
                 .build();
@@ -61,6 +61,10 @@ public class PaymentService {
         Order order = payment.getOrder();
         if (userId != null && !order.getUser().getId().equals(userId)) {
             throw new ForbiddenException("Payment does not belong to the current user");
+        }
+
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+            return mapToPaymentDTO(payment);
         }
 
         String statusStr = request.status() != null ? request.status().toUpperCase() : "SUCCESS";

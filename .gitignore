@@ -72,3 +72,7 @@ docker-compose.override.yml
 # Logs
 logs/
 *.log
+
+# Sensitive private key files
+*.pem
+

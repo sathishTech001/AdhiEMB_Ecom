@@ -4,6 +4,8 @@ import { Select } from '../ui/Select';
 export interface FormSelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
+  helperText?: string;
+  placeholder?: string;
   name?: string;
   register?: any;
   registration?: any;
@@ -11,16 +13,20 @@ export interface FormSelectProps extends SelectHTMLAttributes<HTMLSelectElement>
 }
 
 export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(function FormSelect(
-  { label, error, register, registration, name, options, ...props },
+  { label, error, helperText, placeholder, register, registration, name, options, ...props },
   ref
 ) {
   const reg = registration || (register && name ? register(name) : {});
+  const resolvedRef = ref || (props as any).ref || reg.ref;
   return (
     <Select
       label={label}
       error={error}
+      helperText={helperText}
+      placeholder={placeholder}
+      name={name || reg.name}
       options={options || []}
-      ref={ref}
+      ref={resolvedRef}
       {...reg}
       {...props}
     />

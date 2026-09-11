@@ -13,6 +13,7 @@ public record DownloadTokenDTO(
     Long fileId,
     String fileName,
     String fileFormat,
+    String machineInfo,
     Integer downloadCount,
     Integer maxDownloads,
     LocalDateTime expiresAt

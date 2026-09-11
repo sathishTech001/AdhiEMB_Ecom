@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, RefreshCw, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { api } from '@/lib/axios';
 import { Button } from './Button';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 
 export interface ImageUploaderProps {
   value?: string;
@@ -44,19 +44,19 @@ export function ImageUploader({
   // Sync state when external value changes
   useEffect(() => {
     if (value) {
-      setPreviewUrl(value);
+      setPreviewUrl(getImageUrl(value));
       setHasImageError(false);
       const ext = value.split('.').pop()?.split('?')[0].toUpperCase();
       if (ext && ['JPG', 'JPEG', 'PNG', 'WEBP'].includes(ext)) {
         setFileFormat(ext);
       }
-    } else {
+    } else if (!localFile) {
       setPreviewUrl('');
       setLocalFile(null);
       setDimensions(null);
       setFileFormat('');
     }
-  }, [value]);
+  }, [value, localFile]);
 
   // Format file size display
   const formatFileSize = (bytes: number): string => {
@@ -123,7 +123,7 @@ export function ImageUploader({
       formData.append('file', file);
       formData.append('directory', directory);
 
-      const response = await api.post('/api/files/upload', formData, {
+      const response = await api.post('/files/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
@@ -137,7 +137,7 @@ export function ImageUploader({
         const storedUrl = response.data.data.url || response.data.data.filePath;
         setUploadProgress(100);
         onChange(storedUrl);
-        setPreviewUrl(storedUrl);
+        setPreviewUrl(objectUrl || getImageUrl(storedUrl));
       } else {
         throw new Error('Invalid response from upload server');
       }
@@ -207,39 +207,39 @@ export function ImageUploader({
         }}
       />
 
-      {/* Upload Dropzone (Shown if no image selected - Horizontal Flex Layout) */}
+      {/* Upload Dropzone (Shown if no image selected) */}
       {!previewUrl && (
         <div
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onClick={() => !disabled && !isUploading && fileInputRef.current?.click()}
           className={cn(
-            'border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-900/50 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20',
+            'border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-900/50 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20',
             (disabled || isUploading) && 'opacity-60 cursor-not-allowed'
           )}
         >
-          <div className="flex items-center gap-4 text-left">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
+          <div className="flex items-center gap-3.5 text-left">
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
               {isUploading ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <Upload className="w-6 h-6" />
+                <Upload className="w-5 h-5" />
               )}
             </div>
 
             <div>
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {isUploading ? 'Uploading to fstore storage...' : 'Choose Image File from Device'}
+                {isUploading ? 'Uploading to fstore storage...' : 'Select an image to upload'}
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
-                Supports JPG, JPEG, PNG, or WEBP • All width & height dimensions allowed
+                Supports JPG, JPEG, PNG, or WEBP • Maximum image size: 5 MB
               </p>
             </div>
           </div>
 
-          <div className="shrink-0 text-right">
-            <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm">
-              Max Size: 5 MB
+          <div className="shrink-0">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 text-white shadow-sm">
+              Max: 5 MB
             </span>
           </div>
         </div>
@@ -263,76 +263,76 @@ export function ImageUploader({
         </div>
       )}
 
-      {/* Selected / Existing Image Preview & Metadata Card (Horizontal Layout) */}
+      {/* Selected / Existing Image Preview & Metadata Card */}
       {previewUrl && !isUploading && (
-        <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-950/5 dark:bg-slate-900 p-4 shadow-sm flex flex-col md:flex-row items-center gap-4">
-          {/* Left Side: Horizontal Image Preview Box */}
-          <div className="relative w-full md:w-48 h-36 shrink-0 overflow-hidden rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center">
-            {!hasImageError ? (
-              <img
-                src={previewUrl}
-                alt="Uploaded preview"
-                onError={() => setHasImageError(true)}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center p-2 text-center text-slate-400 space-y-1">
-                <AlertCircle className="w-6 h-6 text-amber-500" />
-                <span className="text-[11px] font-semibold text-slate-300">Image unavailable</span>
-              </div>
-            )}
-          </div>
+        <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-950/5 dark:bg-slate-900 p-3.5 shadow-sm flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row items-center gap-3.5">
+            {/* Left Side: Image Preview Box */}
+            <div className="relative w-full sm:w-36 h-28 shrink-0 overflow-hidden rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center">
+              {!hasImageError ? (
+                <img
+                  src={previewUrl}
+                  alt="Uploaded preview"
+                  onError={() => setHasImageError(true)}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-2 text-center text-slate-400 space-y-1">
+                  <AlertCircle className="w-5 h-5 text-amber-500" />
+                  <span className="text-[11px] font-semibold text-slate-300">Image unavailable</span>
+                </div>
+              )}
+            </div>
 
-          {/* Right Side: Image Metadata & Horizontal Actions */}
-          <div className="flex-1 min-w-0 space-y-2.5 w-full">
-            <div className="space-y-1 text-xs">
+            {/* Right Side: Image Metadata */}
+            <div className="flex-1 min-w-0 space-y-1.5 w-full text-xs">
               <div className="font-bold text-slate-900 dark:text-white truncate">
                 <span className="text-slate-400 font-normal">File: </span>
                 <span className="font-mono">{localFile ? localFile.name : previewUrl.split('/').pop()}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-400 text-xs">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-slate-600 dark:text-slate-400 text-xs">
                 {localFile && (
                   <div>Size: <span className="font-semibold text-slate-800 dark:text-slate-200">{formatFileSize(localFile.size)}</span></div>
                 )}
                 {dimensions && dimensions.width > 0 && (
-                  <div>Dimensions: <span className="font-semibold text-slate-800 dark:text-slate-200">{dimensions.width} × {dimensions.height} px</span></div>
+                  <div>Dims: <span className="font-semibold text-slate-800 dark:text-slate-200">{dimensions.width}×{dimensions.height} px</span></div>
                 )}
                 {fileFormat && (
                   <div>Format: <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{fileFormat}</span></div>
                 )}
-                <div className="text-emerald-500 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> All dimensions allowed (&le; 5 MB)
+                <div className="text-emerald-500 font-semibold flex items-center gap-1 col-span-2">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Max Size: 5 MB (Valid)
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || isUploading}
-                className="h-8 text-xs font-semibold"
-              >
-                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                Replace Image
-              </Button>
+          {/* Action Buttons: Full-width container with flex row and full button visibility */}
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || isUploading}
+              className="h-8 text-xs font-semibold px-3"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Replace Image
+            </Button>
 
-              <Button
-                type="button"
-                variant="danger"
-                size="sm"
-                onClick={handleRemoveImage}
-                disabled={disabled || isUploading}
-                className="h-8 text-xs font-semibold"
-              >
-                <X className="w-3.5 h-3.5 mr-1.5" />
-                Remove
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={handleRemoveImage}
+              disabled={disabled || isUploading}
+              className="h-8 text-xs font-semibold px-3"
+            >
+              <X className="w-3.5 h-3.5 mr-1.5" />
+              Remove
+            </Button>
           </div>
         </div>
       )}

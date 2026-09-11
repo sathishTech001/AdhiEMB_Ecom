@@ -8,6 +8,7 @@ public record ProductFilterRequest(
         String search,
         Long categoryId,
         String categorySlug,
+        String designType,
         MachineFormat format,
         BigDecimal minPrice,
         BigDecimal maxPrice,

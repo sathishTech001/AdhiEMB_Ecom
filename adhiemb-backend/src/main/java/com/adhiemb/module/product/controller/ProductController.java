@@ -66,7 +66,7 @@ public class ProductController {
         return ApiResponse.success("Product submitted for approval", productService.submitForApproval(id, currentUserId));
     }
 
-    @PostMapping("/{id}/approval")
+    @PostMapping(value = {"/{id}/approval", "/{id}/approve"})
     @PreAuthorize("hasAuthority('PRODUCT_APPROVE')")
     public ApiResponse<ProductDetailDTO> approveOrRejectProduct(
             @PathVariable Long id,

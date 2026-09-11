@@ -3,7 +3,7 @@ package com.adhiemb.module.download.entity;
 import com.adhiemb.common.BaseEntity;
 import com.adhiemb.module.order.entity.Order;
 import com.adhiemb.module.product.entity.Product;
-import com.adhiemb.module.product.entity.ProductFile;
+import com.adhiemb.module.product.entity.ProductFileData;
 import com.adhiemb.module.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -36,15 +36,15 @@ public class DownloadToken extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "file_id")
-    private ProductFile file;
+    private ProductFileData file;
 
     @Column(name = "download_count")
     @Builder.Default
     private Integer downloadCount = 0;
 
+    // null = unlimited downloads (lifetime access). Non-null = capped downloads.
     @Column(name = "max_downloads")
-    @Builder.Default
-    private Integer maxDownloads = 50;
+    private Integer maxDownloads;
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;

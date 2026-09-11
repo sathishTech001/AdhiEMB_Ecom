@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { CartItem, AddToCartData, Cart } from '../types/cart.types';
 import { cartApi } from '../api/cart.api';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { Product, MachineFormat } from '@/features/products/types/product.types';
+import { Product, MachineFormat, ProductFile } from '@/features/products/types/product.types';
 
 interface CartContextType {
   cart: Cart;
@@ -15,7 +15,8 @@ interface CartContextType {
   toggleCartDrawer: () => void;
   openCartDrawer: () => void;
   closeCartDrawer: () => void;
-  addToCart: (product: Product | AddToCartData, selectedFormat?: MachineFormat, quantity?: number) => Promise<void>;
+  addToCart: (product: Product | AddToCartData, selectedFormat?: MachineFormat, quantity?: number, file?: ProductFile) => Promise<void>;
+  addFilesToCart: (product: Product, files: ProductFile[]) => Promise<void>;
   removeFromCart: (itemId: string | number) => Promise<void>;
   updateQuantity: (itemId: string | number, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -91,22 +92,28 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addToCart = async (
     target: Product | AddToCartData,
     selectedFormat?: MachineFormat,
-    quantity: number = 1
+    quantity: number = 1,
+    file?: ProductFile
   ) => {
     try {
       let productId: string | number;
+      let productFileId: string | number | undefined = file?.id;
       let title = 'Embroidery Design';
       let slug = '';
-      let price = 0;
+      let price = file?.price !== undefined ? file.price : 0;
       let image: string | undefined = undefined;
-      let format: MachineFormat | undefined = selectedFormat;
+      let format: MachineFormat | undefined = (file?.fileFormat || file?.format || selectedFormat) as any;
+      let machineInfo: string | undefined = file?.machineInfo;
+      let originalFileName: string | undefined = file?.originalFileName || file?.fileName;
 
       if ('title' in target) {
         // Product object passed
         productId = target.id;
         title = target.title;
         slug = target.slug;
-        price = target.discountPrice || target.price;
+        if (!price) {
+          price = file?.price || 0;
+        }
         image = target.primaryImage || (target.images && target.images[0]?.url);
         if (!format && target.formats && target.formats.length > 0) {
           format = target.formats[0];
@@ -114,7 +121,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         // AddToCartData passed
         productId = target.productId;
-        format = target.selectedFormat || selectedFormat;
+        productFileId = target.productFileId || productFileId;
+        format = target.selectedFormat || format;
         quantity = target.quantity || quantity;
       }
 
@@ -122,6 +130,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const res = await cartApi.addToCart({
             productId,
+            productFileId,
             quantity,
             selectedFormat: format,
           });
@@ -130,49 +139,78 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch {
           // Local fallback
-          updateLocalCartAdd(productId, title, slug, price, image, format, quantity);
+          updateLocalCartAdd(productId, productFileId, title, slug, price, image, format, machineInfo, originalFileName, quantity);
         }
       } else {
-        updateLocalCartAdd(productId, title, slug, price, image, format, quantity);
+        updateLocalCartAdd(productId, productFileId, title, slug, price, image, format, machineInfo, originalFileName, quantity);
       }
 
-      toast.success(`Added "${title}" to your cart!`);
+      toast.success(`Added ${machineInfo ? `(${machineInfo} - .${format})` : `"${title}"`} to cart!`);
       openCartDrawer();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to add item to cart');
     }
   };
 
+  const addFilesToCart = async (product: Product, filesToAdd: ProductFile[]) => {
+    if (!filesToAdd || filesToAdd.length === 0) {
+      toast.error('Please select at least one machine file');
+      return;
+    }
+    for (const f of filesToAdd) {
+      await addToCart(
+        {
+          productId: product.id,
+          productFileId: f.id,
+          selectedFormat: (f.fileFormat || f.format) as any,
+          quantity: 1,
+        },
+        (f.fileFormat || f.format) as any,
+        1,
+        f
+      );
+    }
+  };
+
   const updateLocalCartAdd = (
     productId: string | number,
+    productFileId: string | number | undefined,
     title: string,
     slug: string,
     price: number,
     image?: string,
     format?: MachineFormat,
+    machineInfo?: string,
+    originalFileName?: string,
     quantity: number = 1
   ) => {
     setItems((prev) => {
       const existingIdx = prev.findIndex(
-        (i) => String(i.productId) === String(productId) && i.selectedFormat === format
+        (i) => String(i.productId) === String(productId) &&
+               String(i.productFileId || '') === String(productFileId || '') &&
+               i.selectedFormat === format
       );
       if (existingIdx > -1) {
         const updated = [...prev];
         updated[existingIdx] = {
           ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + quantity,
+          quantity: 1,
         };
         return updated;
       } else {
         const newItem: CartItem = {
           id: `cart-item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           productId,
+          productFileId,
           productTitle: title,
           productSlug: slug,
           productImage: image,
           price,
           quantity,
           selectedFormat: format,
+          fileFormat: format,
+          machineInfo,
+          originalFileName,
         };
         return [...prev, newItem];
       }
@@ -245,6 +283,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         openCartDrawer,
         closeCartDrawer,
         addToCart,
+        addFilesToCart,
         removeFromCart,
         updateQuantity,
         clearCart,

@@ -12,6 +12,7 @@ import {
 import { useAdminPayments } from '../hooks/usePayments';
 import { Payment } from '../types/payment.types';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '@/lib/utils';
 
 export const AdminPaymentsPage = () => {
   const { data: paymentsData, isLoading, refetch } = useAdminPayments();
@@ -35,8 +36,8 @@ export const AdminPaymentsPage = () => {
       customerName: 'Sarah Connor',
       customerEmail: 'sarah@example.com',
       gateway: 'RAZORPAY',
-      amount: 45.00,
-      currency: 'USD',
+      amount: 450.00,
+      currency: 'INR',
       status: 'PAID',
       createdAt: '2026-07-20T10:15:22Z',
       rawResponse: {
@@ -55,14 +56,14 @@ export const AdminPaymentsPage = () => {
       customerName: 'Alex Rivera',
       customerEmail: 'alex@example.com',
       gateway: 'STRIPE',
-      amount: 19.99,
-      currency: 'USD',
+      amount: 199.00,
+      currency: 'INR',
       status: 'PAID',
       createdAt: '2026-07-20T12:00:15Z',
       rawResponse: {
         id: 'ch_stripe_3M8a2Kjsd90',
         object: 'charge',
-        amount: 1999,
+        amount: 19900,
         captured: true,
         receipt_url: 'https://pay.stripe.com/receipts/acct_123/ch_123',
       },
@@ -75,8 +76,8 @@ export const AdminPaymentsPage = () => {
       customerName: 'Marcus Vance',
       customerEmail: 'marcus@example.com',
       gateway: 'TEST_CARD',
-      amount: 35.00,
-      currency: 'USD',
+      amount: 350.00,
+      currency: 'INR',
       status: 'PENDING',
       createdAt: '2026-07-19T18:45:00Z',
       rawResponse: {
@@ -88,10 +89,10 @@ export const AdminPaymentsPage = () => {
 
   const filteredPayments = paymentsList.filter((pay) => {
     const matchesSearch =
-      pay.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (pay.transactionId || pay.paymentNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (pay.orderNumber && pay.orderNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (pay.customerName && pay.customerName.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesGateway = selectedGateway === 'ALL' || pay.gateway === selectedGateway;
+    const matchesGateway = selectedGateway === 'ALL' || pay.gateway === selectedGateway || pay.paymentMethod === selectedGateway;
     return matchesSearch && matchesGateway;
   });
 
@@ -219,10 +220,10 @@ export const AdminPaymentsPage = () => {
                       <p className="text-xs text-slate-500">{pay.customerEmail}</p>
                     </td>
 
-                    <td className="py-4 px-6">{getGatewayBadge(pay.gateway)}</td>
+                    <td className="py-4 px-6">{getGatewayBadge(pay.gateway || pay.paymentMethod || 'RAZORPAY')}</td>
 
                     <td className="py-4 px-6 font-extrabold text-slate-900 dark:text-white">
-                      ${pay.amount.toFixed(2)} <span className="text-xs font-normal text-slate-400">{pay.currency}</span>
+                      {formatCurrency(pay.amount)} <span className="text-xs font-normal text-slate-400">{pay.currency || 'INR'}</span>
                     </td>
 
                     <td className="py-4 px-6">

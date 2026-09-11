@@ -3,8 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   ShoppingBag, 
   Trash2, 
-  Plus, 
-  Minus, 
   ArrowRight, 
   ArrowLeft, 
   ShieldCheck, 
@@ -15,9 +13,10 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '@/lib/utils';
 
 export const CartPage: React.FC = () => {
-  const { items, subtotal, removeFromCart, updateQuantity, clearCart } = useCart();
+  const { items, subtotal, removeFromCart, clearCart } = useCart();
   const navigate = useNavigate();
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
@@ -102,10 +101,9 @@ export const CartPage: React.FC = () => {
             <div className="lg:col-span-8 space-y-4">
               <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800 overflow-hidden">
                 <div className="hidden sm:grid grid-cols-12 gap-4 px-6 py-4 bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200/80 dark:border-slate-800">
-                  <div className="col-span-6">Embroidery Design</div>
-                  <div className="col-span-2 text-center">Format</div>
-                  <div className="col-span-2 text-center">Quantity</div>
-                  <div className="col-span-2 text-right">Total Price</div>
+                  <div className="col-span-7">Embroidery Design</div>
+                  <div className="col-span-3 text-center">Format</div>
+                  <div className="col-span-2 text-right">Price</div>
                 </div>
 
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -115,7 +113,7 @@ export const CartPage: React.FC = () => {
                       className="p-6 sm:grid sm:grid-cols-12 sm:gap-4 sm:items-center hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                     >
                       {/* Design Details */}
-                      <div className="sm:col-span-6 flex items-start space-x-4 mb-4 sm:mb-0">
+                      <div className="sm:col-span-7 flex items-start space-x-4 mb-4 sm:mb-0">
                         <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 overflow-hidden border border-slate-200/80 dark:border-slate-700 flex-shrink-0">
                           {item.productImage ? (
                             <img
@@ -150,38 +148,22 @@ export const CartPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Format Badge */}
-                      <div className="sm:col-span-2 text-left sm:text-center mb-3 sm:mb-0">
-                        <span className="inline-block px-2.5 py-1 text-xs font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg">
-                          {item.selectedFormat || 'DST'}
-                        </span>
-                      </div>
-
-                      {/* Quantity Controls */}
-                      <div className="sm:col-span-2 flex items-center justify-start sm:justify-center mb-3 sm:mb-0">
-                        <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 p-1">
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition-colors"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="text-sm font-semibold px-3 text-slate-900 dark:text-white">
-                            {item.quantity}
+                      {/* Format / Machine Badge */}
+                      <div className="sm:col-span-3 text-left sm:text-center mb-3 sm:mb-0">
+                        <div className="inline-flex flex-col items-center">
+                          <span className="inline-block px-2.5 py-1 text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+                            .{item.fileFormat || item.selectedFormat || 'DST'}
                           </span>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition-colors"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1 max-w-[140px] truncate">
+                            {item.machineInfo ? `${item.machineInfo}${item.originalFileName ? ` (${item.originalFileName})` : ''}` : (item.originalFileName || '')}
+                          </span>
                         </div>
                       </div>
 
                       {/* Price */}
                       <div className="sm:col-span-2 text-left sm:text-right">
                         <span className="text-base font-extrabold text-slate-900 dark:text-white">
-                          ${(item.price * item.quantity).toFixed(2)}
+                          {formatCurrency(item.price)}
                         </span>
                       </div>
                     </div>
@@ -237,25 +219,25 @@ export const CartPage: React.FC = () => {
                 <div className="space-y-3 text-sm border-t border-slate-100 dark:border-slate-800 pt-4">
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Subtotal</span>
-                    <span className="font-bold text-slate-900 dark:text-white">${subtotal.toFixed(2)}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(subtotal)}</span>
                   </div>
 
                   {discount > 0 && (
                     <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
                       <span>Promo Discount</span>
-                      <span>-${discount.toFixed(2)}</span>
+                      <span>-{formatCurrency(discount)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Digital Tax</span>
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">$0.00</span>
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(0)}</span>
                   </div>
 
                   <div className="border-t border-slate-200 dark:border-slate-800 pt-3 flex justify-between items-baseline">
                     <span className="text-base font-extrabold text-slate-900 dark:text-white">Total</span>
                     <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
-                      ${grandTotal.toFixed(2)}
+                      {formatCurrency(grandTotal)}
                     </span>
                   </div>
                 </div>

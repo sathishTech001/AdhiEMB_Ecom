@@ -109,14 +109,17 @@ public class AnalyticsService {
 
         return products.stream().map(product -> {
             long salesCount = product.getDownloadsCount() != null ? product.getDownloadsCount() : 0L;
-            BigDecimal revenue = product.getPrice().multiply(BigDecimal.valueOf(salesCount));
+            BigDecimal minFilePrice = (product.getFiles() != null && !product.getFiles().isEmpty())
+                    ? product.getFiles().stream().map(com.adhiemb.module.product.entity.ProductFileData::getPrice).filter(java.util.Objects::nonNull).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO)
+                    : BigDecimal.ZERO;
+            BigDecimal revenue = minFilePrice.multiply(BigDecimal.valueOf(salesCount));
             String categoryName = product.getCategory() != null ? product.getCategory().getName() : "Uncategorized";
 
             return new TopProductSalesDTO(
                     product.getId(),
                     product.getTitle(),
                     categoryName,
-                    product.getPrice(),
+                    minFilePrice,
                     salesCount,
                     revenue,
                     product.getRatingAverage()
@@ -153,7 +156,10 @@ public class AnalyticsService {
                 for (Product product : designerProducts) {
                     long sales = product.getDownloadsCount() != null ? product.getDownloadsCount() : 0L;
                     totalSales += sales;
-                    grossRevenue = grossRevenue.add(product.getPrice().multiply(BigDecimal.valueOf(sales)));
+                    BigDecimal minFilePrice = (product.getFiles() != null && !product.getFiles().isEmpty())
+                            ? product.getFiles().stream().map(com.adhiemb.module.product.entity.ProductFileData::getPrice).filter(java.util.Objects::nonNull).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO)
+                            : BigDecimal.ZERO;
+                    grossRevenue = grossRevenue.add(minFilePrice.multiply(BigDecimal.valueOf(sales)));
                 }
 
                 BigDecimal earnings = grossRevenue.multiply(commissionRate)

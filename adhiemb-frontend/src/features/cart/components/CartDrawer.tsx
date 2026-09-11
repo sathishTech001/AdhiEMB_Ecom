@@ -1,10 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck, Download } from 'lucide-react';
+import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, Download } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { formatCurrency } from '@/lib/utils';
 
 export const CartDrawer: React.FC = () => {
-  const { items, itemCount, subtotal, isOpen, closeCartDrawer, removeFromCart, updateQuantity } = useCart();
+  const { items, itemCount, subtotal, isOpen, closeCartDrawer, removeFromCart } = useCart();
   const navigate = useNavigate();
 
   if (!isOpen) return null;
@@ -104,36 +105,20 @@ export const CartDrawer: React.FC = () => {
                         </button>
                       </div>
 
-                      {item.selectedFormat && (
-                        <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded text-xs font-semibold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
-                          {item.selectedFormat}
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                          .{item.fileFormat || item.selectedFormat || 'DST'}
                         </span>
-                      )}
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
+                          {item.machineInfo ? `${item.machineInfo}${item.originalFileName ? ` (${item.originalFileName})` : ''}` : (item.originalFileName || '')}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between mt-3">
-                      {/* Quantity controls */}
-                      <div className="flex items-center space-x-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 shadow-sm">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300 transition-colors"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="text-xs font-semibold px-2 text-slate-900 dark:text-white min-w-[20px] text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-300 transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-
+                    <div className="flex items-center justify-end mt-3">
                       <div className="text-right">
-                        <span className="text-sm font-bold text-slate-900 dark:text-white">
-                          ${(item.price * item.quantity).toFixed(2)}
+                        <span className="text-base font-bold text-slate-900 dark:text-white">
+                          {formatCurrency(item.price)}
                         </span>
                       </div>
                     </div>
@@ -149,7 +134,7 @@ export const CartDrawer: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
                   <span>Subtotal</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
                   <span>Instant Digital Delivery</span>
@@ -157,7 +142,7 @@ export const CartDrawer: React.FC = () => {
                 </div>
                 <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between text-base font-bold text-slate-900 dark:text-white">
                   <span>Total</span>
-                  <span className="text-indigo-600 dark:text-indigo-400">${subtotal.toFixed(2)}</span>
+                  <span className="text-indigo-600 dark:text-indigo-400">{formatCurrency(subtotal)}</span>
                 </div>
               </div>
 
