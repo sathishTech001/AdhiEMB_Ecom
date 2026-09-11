@@ -1,8 +1,6 @@
 services:
   backend:
-    build:
-      context: ../adhiemb-backend
-      dockerfile: Dockerfile
+    image: sathishg26/adhiemb-backend:${BACKEND_IMAGE_TAG:-8296579}
     container_name: adhiemb-backend-prod
     restart: unless-stopped
     environment:
@@ -20,9 +18,7 @@ services:
       - "8080"
 
   frontend:
-    build:
-      context: ../adhiemb-frontend
-      dockerfile: Dockerfile
+    image: sathishg26/adhiemb-frontend:${FRONTEND_IMAGE_TAG:-8296579}
     container_name: adhiemb-frontend-prod
     restart: unless-stopped
     ports:
