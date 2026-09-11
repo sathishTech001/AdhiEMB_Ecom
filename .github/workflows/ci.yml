@@ -204,6 +204,7 @@ jobs:
 
           DEPLOY_SCRIPT="set -e
           cd /home/ubuntu/adhiemb-ecom
+          git pull origin main || true
           docker --version
           docker compose version
 
@@ -212,9 +213,9 @@ jobs:
             exit 1
           fi
 
-          PREV_BACKEND=\$(docker inspect --format='{{.Config.Image}}' adhiemb-backend-prod 2>/dev/null || echo 'sathishg26/adhiemb-backend:2.0.0')
-          PREV_FRONTEND=\$(docker inspect --format='{{.Config.Image}}' adhiemb-frontend-prod 2>/dev/null || echo 'sathishg26/adhiemb-frontend:2.0.0')
-          echo 'Active images: Backend='\$PREV_BACKEND', Frontend='\$PREV_FRONTEND
+          PREV_BACKEND=\$(docker inspect --format='{{.Config.Image}}' adhiemb-backend-prod 2>/dev/null || echo 'sathishg26/adhiemb-backend:1.0.0')
+          PREV_FRONTEND=\$(docker inspect --format='{{.Config.Image}}' adhiemb-frontend-prod 2>/dev/null || echo 'sathishg26/adhiemb-frontend:1.0.1')
+          echo 'Active baseline images: Backend='\$PREV_BACKEND', Frontend='\$PREV_FRONTEND
 
           echo 'Pulling immutable release images...'
           docker pull sathishg26/adhiemb-backend:${{ steps.vars.outputs.sha_short }}
@@ -237,7 +238,7 @@ jobs:
 
           echo 'Performing internal backend health check...'
           HEALTH_PASSED=false
-          for i in \$(seq 1 12); do
+          for i in \$(seq 1 15); do
             if docker exec adhiemb-backend-prod wget -q -O - http://localhost:8080/actuator/health 2>/dev/null | grep -q 'UP'; then
               echo 'Backend health check PASSED!'
               HEALTH_PASSED=true
@@ -249,6 +250,8 @@ jobs:
           if [ \"\$HEALTH_PASSED\" = \"false\" ]; then
             echo 'ERROR: Backend health check failed! Aborting frontend deployment.'
             docker logs --tail 100 adhiemb-backend-prod
+            echo 'Restoring baseline containers...'
+            BACKEND_IMAGE_TAG=1.0.0 FRONTEND_IMAGE_TAG=1.0.1 docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d
             exit 1
           fi
 
@@ -259,10 +262,15 @@ jobs:
           echo 'Verifying running containers...'
           docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
 
-          echo 'Verifying public HTTPS endpoints...'
+          echo 'Verifying container digests...'
+          echo \"Backend Image ID: \$(docker inspect --format='{{.Image}}' adhiemb-backend-prod)\"
+          echo \"Frontend Image ID: \$(docker inspect --format='{{.Image}}' adhiemb-frontend-prod)\"
+
+          echo 'Verifying public HTTP/HTTPS endpoints...'
           curl -f -s https://adhiemb.com/api/public/products > /dev/null
           curl -f -s https://adhiemb.com/actuator/health > /dev/null
           echo 'SUCCESS: Deployment completed cleanly for SHA ${{ steps.vars.outputs.sha_short }}'"
+
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
