@@ -10,12 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release SHA/tag to deploy"
-        required: true
-        default: "93b529b"
-        type: string
-
-
+        description: 'Release SHA/tag to deploy'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -204,7 +201,7 @@ jobs:
 
       - name: Execute Deployment on EC2 via AWS SSM
         run: |
-          RELEASE_TAG="${{ inputs.release_tag }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
           if [ -z "$RELEASE_TAG" ]; then
             RELEASE_TAG="${{ steps.vars.outputs.sha_short }}"
           fi
@@ -214,6 +211,7 @@ jobs:
           echo "Target Instance ID: ${{ vars.EC2_INSTANCE_ID }}"
           echo "Release Tag: ${RELEASE_TAG}"
           echo "=================================================="
+
 
 
           cat << 'EOF' > /tmp/deploy_script.sh
