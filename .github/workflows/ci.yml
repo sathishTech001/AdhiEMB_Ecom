@@ -12,7 +12,9 @@ on:
       release_tag:
         description: "Release SHA/tag to deploy"
         required: true
+        default: "93b529b"
         type: string
+
 
 
 permissions:
