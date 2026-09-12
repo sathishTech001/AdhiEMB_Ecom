@@ -211,33 +211,58 @@ jobs:
 
           release_tag = os.environ.get("RELEASE_TAG", "")
 
+          if not release_tag:
+              print("ERROR: RELEASE_TAG is empty. Aborting.")
+              raise SystemExit(1)
+
+          print(f"Building deploy script for release_tag={release_tag!r}")
+
           deploy_commands = [
               "set -e",
+              f"echo 'RELEASE_TAG={release_tag}'",
               "cd /home/ubuntu/adhiemb-ecom",
               "git pull origin main || true",
               "docker --version",
               "docker compose version",
-              "if [ ! -f 'docker/docker-compose.prod.yml' ] || [ ! -f 'docker/.env.prod' ]; then echo 'ERROR: Required compose or environment configuration files missing!'; exit 1; fi",
-              "PREV_BACKEND=$(docker inspect --format='{{.Config.Image}}' adhiemb-backend-prod 2>/dev/null || echo 'sathishg26/adhiemb-backend:1.0.0')",
-              "PREV_FRONTEND=$(docker inspect --format='{{.Config.Image}}' adhiemb-frontend-prod 2>/dev/null || echo 'sathishg26/adhiemb-frontend:1.0.1')",
-              'echo "Active baseline: Backend=${PREV_BACKEND} Frontend=${PREV_FRONTEND}"',
+              "if [ ! -f 'docker/docker-compose.prod.yml' ] || [ ! -f 'docker/.env.prod' ]; then echo 'ERROR: Required compose or env files missing!'; exit 1; fi",
+              "PREV_BACKEND=$(docker inspect --format='{{.Config.Image}}' adhiemb-backend-prod 2>/dev/null || echo 'none')",
+              "PREV_FRONTEND=$(docker inspect --format='{{.Config.Image}}' adhiemb-frontend-prod 2>/dev/null || echo 'none')",
+              'echo "Baseline: Backend=${PREV_BACKEND} Frontend=${PREV_FRONTEND}"',
+              f"echo 'Pulling sathishg26/adhiemb-backend:{release_tag}'",
               f"docker pull sathishg26/adhiemb-backend:{release_tag}",
+              f"echo 'Pulling sathishg26/adhiemb-frontend:{release_tag}'",
               f"docker pull sathishg26/adhiemb-frontend:{release_tag}",
               f"BACKEND_IMAGE_TAG={release_tag} FRONTEND_IMAGE_TAG={release_tag} docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml config > /dev/null",
-              f"BACKEND_IMAGE_TAG={release_tag} FRONTEND_IMAGE_TAG={release_tag} docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d backend",
-              "sleep 5",
-              "if ! docker ps | grep -q 'adhiemb-backend-prod'; then echo 'ERROR: Backend container failed to start!'; docker logs --tail 50 adhiemb-backend-prod; exit 1; fi",
+              f"echo 'Deploying backend with --force-recreate...'",
+              f"BACKEND_IMAGE_TAG={release_tag} FRONTEND_IMAGE_TAG={release_tag} docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d --force-recreate --no-build backend",
+              "sleep 8",
+              f"RUNNING_BACKEND=$(docker inspect --format='{{{{.Config.Image}}}}' adhiemb-backend-prod 2>/dev/null || echo NOT_RUNNING)",
+              f"echo Running backend image: $RUNNING_BACKEND",
+              f"if [ \"$RUNNING_BACKEND\" != \"sathishg26/adhiemb-backend:{release_tag}\" ]; then echo ERROR: Backend image mismatch. Expected sathishg26/adhiemb-backend:{release_tag} got $RUNNING_BACKEND; docker logs --tail 50 adhiemb-backend-prod 2>/dev/null || true; exit 1; fi",
+              f"echo VERIFIED: Backend running sathishg26/adhiemb-backend:{release_tag}",
               "HEALTH_PASSED=false",
-              "for i in $(seq 1 15); do if docker exec adhiemb-backend-prod wget -q -O - http://localhost:8080/actuator/health 2>/dev/null | grep -q 'UP'; then echo 'Backend health check PASSED!'; HEALTH_PASSED=true; break; fi; sleep 5; done",
-              'if [ "$HEALTH_PASSED" = "false" ]; then echo "ERROR: Backend health check failed!"; docker logs --tail 100 adhiemb-backend-prod; BACKEND_IMAGE_TAG=1.0.0 FRONTEND_IMAGE_TAG=1.0.1 docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d; exit 1; fi',
-              f"BACKEND_IMAGE_TAG={release_tag} FRONTEND_IMAGE_TAG={release_tag} docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d frontend",
+              "for i in $(seq 1 15); do if docker exec adhiemb-backend-prod wget -q -O - http://localhost:8080/actuator/health 2>/dev/null | grep -q UP; then echo Backend health check PASSED; HEALTH_PASSED=true; break; fi; echo Health attempt $i/15; sleep 5; done",
+              'if [ "$HEALTH_PASSED" = "false" ]; then echo "ERROR: Backend health check failed!"; docker logs --tail 100 adhiemb-backend-prod; exit 1; fi',
+              f"echo 'Deploying frontend with --force-recreate...'",
+              f"BACKEND_IMAGE_TAG={release_tag} FRONTEND_IMAGE_TAG={release_tag} docker compose --env-file docker/.env.prod -f docker/docker-compose.prod.yml up -d --force-recreate --no-build frontend",
+              "sleep 5",
+              f"RUNNING_FRONTEND=$(docker inspect --format='{{{{.Config.Image}}}}' adhiemb-frontend-prod 2>/dev/null || echo NOT_RUNNING)",
+              f"echo Running frontend image: $RUNNING_FRONTEND",
+              f"if [ \"$RUNNING_FRONTEND\" != \"sathishg26/adhiemb-frontend:{release_tag}\" ]; then echo ERROR: Frontend image mismatch. Expected sathishg26/adhiemb-frontend:{release_tag} got $RUNNING_FRONTEND; docker logs --tail 50 adhiemb-frontend-prod 2>/dev/null || true; exit 1; fi",
+              f"echo VERIFIED: Frontend running sathishg26/adhiemb-frontend:{release_tag}",
+              "echo ==================================================",
+              "echo FINAL RUNNING CONTAINERS:",
               "docker ps --format 'table {{.Names}}\\t{{.Image}}\\t{{.Status}}'",
-              "echo \"Backend Image ID: $(docker inspect --format='{{.Image}}' adhiemb-backend-prod)\"",
-              "echo \"Frontend Image ID: $(docker inspect --format='{{.Image}}' adhiemb-frontend-prod)\"",
-              "curl -f -s https://adhiemb.com/api/public/products > /dev/null && echo 'API endpoint: OK'",
-              "curl -f -s https://adhiemb.com/actuator/health > /dev/null && echo 'Health endpoint: OK'",
-              f"echo 'SUCCESS: Deployment completed cleanly for SHA {release_tag}'",
+              "echo ==================================================",
+              f"echo IMAGE TAG VERIFICATION PASSED",
+              f"echo Backend  : sathishg26/adhiemb-backend:{release_tag}",
+              f"echo Frontend : sathishg26/adhiemb-frontend:{release_tag}",
+              "echo ==================================================",
+              "curl -f -s https://adhiemb.com/api/public/products > /dev/null && echo API endpoint: OK || echo WARNING: API check failed",
+              "curl -f -s https://adhiemb.com/actuator/health > /dev/null && echo Health endpoint: OK || echo WARNING: Health check failed",
+              f"echo SUCCESS: Deployment completed cleanly for SHA {release_tag}",
           ]
+
 
           full_script = "\n".join(deploy_commands)
           params = {"commands": [full_script]}
