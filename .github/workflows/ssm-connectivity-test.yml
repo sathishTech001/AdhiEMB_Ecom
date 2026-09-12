@@ -69,10 +69,11 @@ jobs:
           echo "=========================================="
 
       # ============================================================
-      # STEP 3: Log target EC2 instance (no ec2:DescribeInstances)
+      # STEP 3: Log target EC2 instance
       # ------------------------------------------------------------
-      # The IAM role intentionally has NO ec2:DescribeInstances.
-      # EC2 state is validated indirectly via SSM PingStatus in Step 4.
+      # The IAM role intentionally has NO ec2:DescribeInstances and
+      # NO ssm:DescribeInstanceInformation (least-privilege).
+      # Reachability is proven directly by ssm:SendCommand in Step 4.
       # ============================================================
       - name: Log Target EC2 Instance
         run: |
@@ -81,52 +82,9 @@ jobs:
           echo "=========================================="
           echo "Target Instance ID : ${{ vars.EC2_INSTANCE_ID }}"
           echo "Region             : ap-south-1"
-          echo "NOTE: ec2:DescribeInstances is intentionally excluded from"
-          echo "      the deployment role (least-privilege). SSM Agent status"
-          echo "      in Step 4 validates that the instance is alive and reachable."
-          echo "=========================================="
-
-      # ============================================================
-      # STEP 4: Verify SSM Managed Node status
-      # ------------------------------------------------------------
-      # Tests : (E) EC2 is registered as SSM Managed Node
-      #         (F) SSM Agent PingStatus == Online
-      # Prints: InstanceId, PingStatus, AgentVersion, Platform
-      # Fails : If instance not registered OR PingStatus != Online
-      # ============================================================
-      - name: Verify SSM Managed Node
-        run: |
-          echo "=========================================="
-          echo "LAYER 3: SSM Managed Node Status"
-          echo "Target: ${{ vars.EC2_INSTANCE_ID }}"
-          echo "=========================================="
-          SSM_INFO=$(aws ssm describe-instance-information \
-            --region ap-south-1 \
-            --filters "Key=InstanceIds,Values=${{ vars.EC2_INSTANCE_ID }}" \
-            --query "InstanceInformationList[0].{InstanceId:InstanceId,PingStatus:PingStatus,AgentVersion:AgentVersion,PlatformName:PlatformName}" \
-            --output json)
-          SSM_INST=$(echo "$SSM_INFO" | jq -r '.InstanceId // "NOT_REGISTERED"')
-          PING=$(echo "$SSM_INFO"     | jq -r '.PingStatus  // "NOT_FOUND"')
-          AGENT=$(echo "$SSM_INFO"    | jq -r '.AgentVersion // "N/A"')
-          PLAT=$(echo "$SSM_INFO"     | jq -r '.PlatformName // "N/A"')
-          echo "InstanceId   : $SSM_INST"
-          echo "PingStatus   : $PING"
-          echo "AgentVersion : $AGENT"
-          echo "Platform     : $PLAT"
-          if [ "$SSM_INST" = "NOT_REGISTERED" ] || [ "$SSM_INST" = "null" ]; then
-            echo ""
-            echo "FAIL: Instance ${{ vars.EC2_INSTANCE_ID }} NOT registered with SSM"
-            echo "DIAGNOSIS [E]: Attach AmazonSSMManagedInstanceCore to the EC2 IAM instance profile."
-            exit 1
-          fi
-          if [ "$PING" != "Online" ]; then
-            echo ""
-            echo "FAIL: SSM Agent PingStatus='$PING' (expected 'Online')"
-            echo "DIAGNOSIS [F]: SSH to EC2 and run: sudo systemctl restart amazon-ssm-agent"
-            exit 1
-          fi
-          echo ""
-          echo "RESULT: SSM Agent is ONLINE on $SSM_INST"
+          echo "NOTE: ec2:DescribeInstances and ssm:DescribeInstanceInformation"
+          echo "      are intentionally excluded (least-privilege deployment role)."
+          echo "      Connectivity is verified directly by ssm:SendCommand below."
           echo "=========================================="
 
       # ============================================================
@@ -246,6 +204,13 @@ jobs:
             exit 1
           fi
 
+          if ! echo "$STDOUT" | grep -q "AdhiEMB_SSM_CONNECTIVITY_OK"; then
+            echo ""
+            echo "FAIL: stdout does not contain 'AdhiEMB_SSM_CONNECTIVITY_OK'"
+            echo "DIAGNOSIS: SSM executed but the expected output was not found."
+            exit 1
+          fi
+
           echo ""
           echo "=========================================="
           echo "AdhiEMB_SSM_CONNECTIVITY_OK"
@@ -253,10 +218,10 @@ jobs:
           echo "CHAIN VERIFIED:"
           echo "  GitHub Actions -> OIDC Token Issue    : PASSED"
           echo "  OIDC           -> IAM Role Assumption : PASSED"
-          echo "  IAM Role       -> SSM Node Lookup     : PASSED"
           echo "  IAM Role       -> SSM SendCommand     : PASSED"
           echo "  SSM            -> EC2 Execution       : PASSED"
           echo "  EC2            -> Command Success     : PASSED"
+          echo "  stdout contains AdhiEMB_SSM_CONNECTIVITY_OK : PASSED"
           echo "=========================================="
           echo "Target Instance : ${{ vars.EC2_INSTANCE_ID }}"
           echo "Command ID      : $COMMAND_ID"
