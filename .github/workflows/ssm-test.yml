@@ -1,0 +1,217 @@
+name: AdhiEMB SSM Connectivity Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  ssm-connectivity-test:
+    name: SSM Connectivity Test
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ----------------------------------------------------------------
+      # STEP 1 - Configure AWS credentials via GitHub OIDC
+      # Tests: (A) OIDC token issuing, (B) IAM role assumption
+      # ----------------------------------------------------------------
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ap-south-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: AdhiEMB-SSM-Test
+
+      # ----------------------------------------------------------------
+      # STEP 2 - Confirm the assumed IAM identity
+      # Tests: OIDC + IAM role assumption succeeded
+      # ----------------------------------------------------------------
+      - name: Verify AWS Identity
+        run: |
+          echo "=========================================="
+          echo "LAYER 1: AWS OIDC Authentication"
+          echo "=========================================="
+          IDENTITY=$(aws sts get-caller-identity --output json)
+          echo "Account : $(echo "$IDENTITY" | jq -r '.Account')"
+          echo "Arn     : $(echo "$IDENTITY" | jq -r '.Arn')"
+          echo "RESULT  : OIDC to IAM role assumption SUCCEEDED"
+          echo "=========================================="
+
+      # ----------------------------------------------------------------
+      # STEP 3 - Confirm EC2 instance exists and is running
+      # Tests: (C) correct EC2_INSTANCE_ID, (D) EC2 state is running
+      # ----------------------------------------------------------------
+      - name: Verify EC2 Instance
+        run: |
+          echo "=========================================="
+          echo "LAYER 2: EC2 Instance Lookup"
+          echo "Target: ${{ vars.EC2_INSTANCE_ID }}"
+          echo "=========================================="
+          INSTANCE_INFO=$(aws ec2 describe-instances \
+            --region ap-south-1 \
+            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
+            --query "Reservations[0].Instances[0].{InstanceId:InstanceId,State:State.Name,Type:InstanceType,AZ:Placement.AvailabilityZone}" \
+            --output json)
+          INST_STATE=$(echo "$INSTANCE_INFO" | jq -r '.State')
+          INST_ID=$(echo "$INSTANCE_INFO" | jq -r '.InstanceId')
+          INST_TYPE=$(echo "$INSTANCE_INFO" | jq -r '.Type')
+          INST_AZ=$(echo "$INSTANCE_INFO" | jq -r '.AZ')
+          echo "InstanceId : $INST_ID"
+          echo "State      : $INST_STATE"
+          echo "Type       : $INST_TYPE"
+          echo "AZ         : $INST_AZ"
+          if [ "$INST_STATE" != "running" ]; then
+            echo "FAIL: EC2 is NOT running (state: $INST_STATE)"
+            echo "DIAGNOSIS: Problem D - EC2 instance not in running state"
+            exit 1
+          fi
+          echo "RESULT: EC2 instance is RUNNING"
+          echo "=========================================="
+
+      # ----------------------------------------------------------------
+      # STEP 4 - Verify SSM Agent is Online
+      # Tests: (E) instance registered with SSM, (F) SSM Agent online
+      # ----------------------------------------------------------------
+      - name: Verify SSM Managed Node
+        run: |
+          echo "=========================================="
+          echo "LAYER 3: SSM Managed Node Status"
+          echo "Target: ${{ vars.EC2_INSTANCE_ID }}"
+          echo "=========================================="
+          SSM_INFO=$(aws ssm describe-instance-information \
+            --region ap-south-1 \
+            --filters "Key=InstanceIds,Values=${{ vars.EC2_INSTANCE_ID }}" \
+            --query "InstanceInformationList[0].{InstanceId:InstanceId,PingStatus:PingStatus,AgentVersion:AgentVersion,PlatformName:PlatformName}" \
+            --output json)
+          SSM_INST=$(echo "$SSM_INFO" | jq -r '.InstanceId // "NOT_REGISTERED"')
+          PING=$(echo "$SSM_INFO" | jq -r '.PingStatus // "NOT_FOUND"')
+          AGENT=$(echo "$SSM_INFO" | jq -r '.AgentVersion // "N/A"')
+          PLAT=$(echo "$SSM_INFO" | jq -r '.PlatformName // "N/A"')
+          echo "InstanceId   : $SSM_INST"
+          echo "PingStatus   : $PING"
+          echo "AgentVersion : $AGENT"
+          echo "Platform     : $PLAT"
+          if [ "$SSM_INST" = "NOT_REGISTERED" ] || [ "$SSM_INST" = "null" ]; then
+            echo "FAIL: Instance NOT registered with SSM"
+            echo "DIAGNOSIS: Problem E - Ensure IAM instance profile has AmazonSSMManagedInstanceCore"
+            exit 1
+          fi
+          if [ "$PING" != "Online" ]; then
+            echo "FAIL: SSM Agent PingStatus is '$PING' (expected Online)"
+            echo "DIAGNOSIS: Problem F - SSM Agent offline. SSH in and run: sudo systemctl restart amazon-ssm-agent"
+            exit 1
+          fi
+          echo "RESULT: SSM Agent is ONLINE"
+          echo "=========================================="
+
+      # ----------------------------------------------------------------
+      # STEP 5 - Send a harmless test command via SSM
+      # Tests: (G) ssm:SendCommand IAM permission, (H) EC2 execution
+      # SAFE: only writes to /tmp - no Docker, no app dirs, no DB
+      # ----------------------------------------------------------------
+      - name: Create Test File on EC2 via SSM
+        run: |
+          echo "=========================================="
+          echo "LAYER 4: SSM Send Command"
+          echo "Target: ${{ vars.EC2_INSTANCE_ID }}"
+          echo "=========================================="
+          python3 -c "
+          import json
+          cmds = [
+              'set -e',
+              'echo AdhiEMB-SSM-TEST: GitHub Actions to EC2 connectivity verified',
+              'printf \"Timestamp: %s\n\" \"\$(date)\" > /tmp/adhiemb-ssm-test.txt',
+              'printf \"Hostname: %s\n\" \"\$(hostname)\" >> /tmp/adhiemb-ssm-test.txt',
+              'printf \"Kernel: %s\n\" \"\$(uname -r)\" >> /tmp/adhiemb-ssm-test.txt',
+              'printf \"Uptime: %s\n\" \"\$(uptime)\" >> /tmp/adhiemb-ssm-test.txt',
+              'echo Chain: GitHub-Actions-OIDC-IAM-SSM-EC2-ALL-PASSED >> /tmp/adhiemb-ssm-test.txt',
+              'echo --- /tmp/adhiemb-ssm-test.txt ---',
+              'cat /tmp/adhiemb-ssm-test.txt',
+          ]
+          params = {'commands': [chr(10).join(cmds)]}
+          import json as j
+          with open('/tmp/ssm-test-params.json', 'w') as f:
+              j.dump(params, f)
+          print('SSM test parameters written to /tmp/ssm-test-params.json')
+          "
+          COMMAND_ID=$(aws ssm send-command \
+            --region ap-south-1 \
+            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters file:///tmp/ssm-test-params.json \
+            --comment "AdhiEMB SSM Connectivity Test" \
+            --timeout-seconds 120 \
+            --query "Command.CommandId" \
+            --output text)
+          if [ -z "$COMMAND_ID" ]; then
+            echo "FAIL: SSM send-command returned empty CommandId"
+            echo "DIAGNOSIS: Problem G - Check ssm:SendCommand IAM permission or instance state"
+            exit 1
+          fi
+          echo "SSM Command Sent. Command ID: $COMMAND_ID"
+          echo "COMMAND_ID=$COMMAND_ID" >> "$GITHUB_ENV"
+          echo "=========================================="
+
+      # ----------------------------------------------------------------
+      # STEP 6 - Wait for SSM command to complete
+      # ----------------------------------------------------------------
+      - name: Wait for SSM Command Execution
+        run: |
+          echo "=========================================="
+          echo "LAYER 5: Waiting for SSM Command Completion"
+          echo "Command ID: $COMMAND_ID"
+          echo "=========================================="
+          aws ssm wait command-executed \
+            --region ap-south-1 \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ vars.EC2_INSTANCE_ID }}"
+          echo "Wait complete."
+          echo "=========================================="
+
+      # ----------------------------------------------------------------
+      # STEP 7 - Retrieve and evaluate the SSM command result
+      # ----------------------------------------------------------------
+      - name: Verify SSM Command Result
+        run: |
+          echo "=========================================="
+          echo "LAYER 6: SSM Command Result"
+          echo "Command ID: $COMMAND_ID"
+          echo "=========================================="
+          INVOCATION=$(aws ssm get-command-invocation \
+            --region ap-south-1 \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+            --output json)
+          STATUS=$(echo "$INVOCATION" | jq -r '.Status')
+          STDOUT=$(echo "$INVOCATION" | jq -r '.StandardOutputContent')
+          STDERR=$(echo "$INVOCATION" | jq -r '.StandardErrorContent')
+          echo "SSM Execution Status: $STATUS"
+          echo ""
+          echo "--- Standard Output ---"
+          echo "$STDOUT"
+          if [ -n "$STDERR" ] && [ "$STDERR" != "null" ] && [ "$STDERR" != "" ]; then
+            echo ""
+            echo "--- Standard Error ---"
+            echo "$STDERR"
+          fi
+          if [ "$STATUS" != "Success" ]; then
+            echo ""
+            echo "FAIL: SSM command status: $STATUS"
+            echo "DIAGNOSIS: Problem H - Command reached EC2 but failed during execution"
+            exit 1
+          fi
+          echo ""
+          echo "=========================================="
+          echo "SSM COMMAND SUCCESS"
+          echo "=========================================="
+          echo "Full chain verified:"
+          echo "  GitHub Actions -> OIDC Auth       : PASSED"
+          echo "  OIDC           -> AWS IAM Role    : PASSED"
+          echo "  IAM            -> EC2 Lookup      : PASSED"
+          echo "  IAM            -> SSM Node Check  : PASSED"
+          echo "  IAM            -> SSM SendCommand : PASSED"
+          echo "  SSM            -> EC2 Execution   : PASSED"
+          echo "=========================================="
