@@ -18,8 +18,7 @@ import {
   Hash,
   X,
   Sparkles,
-  RefreshCw,
-  Info
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { FormField } from '@/components/forms/FormField';
@@ -29,7 +28,7 @@ import { ImageInput } from '@/components/ui/ImageInput';
 import { ImageMaskEditor } from './ImageMaskEditor';
 import { ImageTextEditor } from './ImageTextEditor';
 import { DefaultWatermarkPanel, WatermarkConfig, DEFAULT_WATERMARK_CONFIG } from './DefaultWatermarkPanel';
-import { cn } from '@/lib/utils';
+import { cn, getImageUrl } from '@/lib/utils';
 import { apiClient } from '@/lib/axios';
 import { useCategoriesQuery } from '@/features/categories/hooks/useCategories';
 import { MachineFormat, ProductDetail, CreateProductData, ProductFile, DESIGN_TYPES } from '../types/product.types';
@@ -340,7 +339,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         const res = await fetch(url);
         const blob = await res.blob();
         const formData = new FormData();
-        formData.append('file', blob, 'stamped_product.png');
+        formData.append('file', blob, 'stamped_product.jpg');
         const uploadRes = await apiClient.post('/products/images/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
@@ -348,7 +347,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           return uploadRes.data.data.url;
         }
       } catch (err) {
-        console.warn('Failed to upload base64 image in frontend, falling back to server ingestion', err);
+        console.error('Failed to upload base64 image in frontend, falling back to server ingestion', err);
       }
       return url;
     };
@@ -416,7 +415,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         const res = await fetch(url);
         const blob = await res.blob();
         const formData = new FormData();
-        formData.append('file', blob, 'stamped_product.png');
+        formData.append('file', blob, 'stamped_product.jpg');
         const uploadRes = await apiClient.post('/products/images/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
@@ -424,7 +423,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           return uploadRes.data.data.url;
         }
       } catch (err) {
-        console.warn('Failed to upload base64 image in frontend, falling back to server ingestion', err);
+        console.error('Failed to upload base64 image in frontend, falling back to server ingestion', err);
       }
       return url;
     };
@@ -454,163 +453,119 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit(handleSubmitForApproval)} className="space-y-8 animate-fadeIn">
-      {/* SECTION 1 — BASIC INFORMATION & STUDIO (2-COLUMN LAYOUT) */}
-      <section className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT COLUMN: Basic Information & Default Watermark (Col 7) */}
-          <div className="lg:col-span-12 xl:col-span-7 space-y-5">
-            <div className="space-y-5 rounded-3xl bg-white dark:bg-slate-900/60 p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Section 1 — Basic Information
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Provide product title, unique product code, category, pricing and more.
-                  </p>
-                </div>
-              </div>
+      {/* SECTION 1 — BASIC INFORMATION */}
+      <section className="space-y-5 rounded-3xl bg-white dark:bg-slate-900/60 p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Section 1 — Basic Information
+            </h3>
+            <p className="text-xs text-slate-400">
+              Provide product title, unique product code, category, design type, and description.
+            </p>
+          </div>
+        </div>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    label="Product Title *"
-                    placeholder="e.g. Royal Peacock Embroidery Motif DST"
-                    error={errors.title?.message}
-                    {...register('title', {
-                      onChange: (e) => {
-                        const newTitle = e.target.value;
-                        const currentCode = getValues('productCode');
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              label="Product Title *"
+              placeholder="e.g. Royal Peacock Embroidery Motif DST"
+              error={errors.title?.message}
+              {...register('title', {
+                onChange: (e) => {
+                  const newTitle = e.target.value;
+                  const currentCode = getValues('productCode');
 
-                        const newSlug = slugify(newTitle);
-                        setValue('slug', newSlug, { shouldValidate: false });
+                  const newSlug = slugify(newTitle);
+                  setValue('slug', newSlug, { shouldValidate: false });
 
-                        if (!currentCode || currentCode.startsWith('ADHI-')) {
-                          const newCode = generateProductCode(newTitle);
-                          setValue('productCode', newCode, { shouldValidate: true });
-                        }
-                      },
-                    })}
-                  />
+                  if (!currentCode || currentCode.startsWith('ADHI-')) {
+                    const newCode = generateProductCode(newTitle);
+                    setValue('productCode', newCode, { shouldValidate: true });
+                  }
+                },
+              })}
+            />
 
-                  <div className="relative">
-                    <FormField
-                      label="Product Code *"
-                      placeholder="e.g. ADHI-PRD-000123"
-                      helperText="Auto generated unique product code"
-                      leftIcon={<Hash className="w-4 h-4 text-slate-400" />}
-                      error={errors.productCode?.message}
-                      {...register('productCode')}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newCode = generateUniqueProductCode();
-                        setValue('productCode', newCode, { shouldValidate: true });
-                      }}
-                      className="absolute right-2.5 top-8 p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      title="Regenerate unique product code"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormSelect
-                    label="Category *"
-                    options={categoryOptions}
-                    error={errors.categoryId?.message}
-                    {...register('categoryId')}
-                  />
-
-                  <FormSelect
-                    label="Design Type *"
-                    options={designTypeOptions}
-                    error={errors.designType?.message}
-                    helperText="Embroidery classification (e.g. Neck Design, Border)"
-                    {...register('designType')}
-                  />
-                </div>
-
-                <div>
-                  <FormField
-                    label="URL Slug"
-                    placeholder="Auto-generated from title"
-                    helperText="URL-friendly identifier"
-                    error={errors.slug?.message}
-                    {...register('slug', {
-                      onChange: (e) => {
-                        const formatted = slugify(e.target.value);
-                        setValue('slug', formatted, { shouldValidate: false });
-                      },
-                    })}
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      Description *
-                    </label>
-                  </div>
-                  <textarea
-                    rows={4}
-                    placeholder="Describe the design style, recommended fabric type, thread density, and machine settings..."
-                    className={cn(
-                      "w-full rounded-xl border bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all",
-                      errors.description
-                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/50"
-                        : "border-slate-300 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/50"
-                    )}
-                    {...register('description')}
-                  />
-                  {errors.description && (
-                    <p className="text-xs font-semibold text-red-500 mt-1">{errors.description.message}</p>
-                  )}
-                </div>
-
-                {/* Default Watermark Preview & Settings Panel */}
-                <div className="pt-2">
-                  <DefaultWatermarkPanel
-                    imageUrl={
-                      images[0] ||
-                      initialValues?.primaryImage ||
-                      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80'
-                    }
-                    config={watermarkConfig}
-                    onChange={setWatermarkConfig}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Note */}
-            <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 flex items-start gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
-              <Info className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-              <span>
-                <strong>Note:</strong> You can edit the auto text (product code), its size, color, position and other properties on the right panel.
-              </span>
+            <div className="relative">
+              <FormField
+                label="Product Code *"
+                placeholder="e.g. ADHI-PRD-000123"
+                helperText="Auto generated unique product code"
+                leftIcon={<Hash className="w-4 h-4 text-slate-400" />}
+                error={errors.productCode?.message}
+                {...register('productCode')}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const newCode = generateUniqueProductCode();
+                  setValue('productCode', newCode, { shouldValidate: true });
+                }}
+                className="absolute right-2.5 top-8 p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title="Regenerate unique product code"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Image Text Editor & Live Preview (Col 5) */}
-          <div className="lg:col-span-12 xl:col-span-5 sticky top-6">
-            <ImageTextEditor
-              imageUrl={
-                images[0] ||
-                initialValues?.primaryImage ||
-                'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80'
-              }
-              productCode={watchedProductCode || getValues('productCode')}
-              watermarkConfig={watermarkConfig}
-              onCompositeGenerated={(compositeUrl) => {
-                setStampedImageUrl(compositeUrl);
-              }}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormSelect
+              label="Category *"
+              options={categoryOptions}
+              error={errors.categoryId?.message}
+              {...register('categoryId')}
             />
+
+            <FormSelect
+              label="Design Type *"
+              options={designTypeOptions}
+              error={errors.designType?.message}
+              helperText="Embroidery classification (e.g. Neck Design, Border)"
+              {...register('designType')}
+            />
+          </div>
+
+          <div>
+            <FormField
+              label="URL Slug"
+              placeholder="Auto-generated from title"
+              helperText="URL-friendly identifier"
+              error={errors.slug?.message}
+              {...register('slug', {
+                onChange: (e) => {
+                  const formatted = slugify(e.target.value);
+                  setValue('slug', formatted, { shouldValidate: false });
+                },
+              })}
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
+                Description *
+              </label>
+            </div>
+            <textarea
+              rows={4}
+              placeholder="Describe the design style, recommended fabric type, thread density, and machine settings..."
+              className={cn(
+                "w-full rounded-xl border bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all",
+                errors.description
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500/50"
+                  : "border-slate-300 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/50"
+              )}
+              {...register('description')}
+            />
+            {errors.description && (
+              <p className="text-xs font-semibold text-red-500 mt-1">{errors.description.message}</p>
+            )}
           </div>
         </div>
       </section>
@@ -704,99 +659,32 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </section>
 
-      {/* SECTION 3 — PRODUCT IMAGES */}
-      <section className="space-y-5 rounded-2xl bg-white dark:bg-slate-900/60 p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-            <ImageIcon className="w-5 h-5" />
+      {/* SECTION 3 — PRODUCT IMAGES & STUDIO */}
+      <section className="space-y-6 rounded-3xl bg-white dark:bg-slate-900/60 p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+              <ImageIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Section 3 — Product Images & Studio
+              </h3>
+              <p className="text-xs text-slate-400">
+                Upload primary thumbnail and gallery preview images, and customize watermarks & product code stamps.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Section 3 — Product Images
-            </h3>
-            <p className="text-xs text-slate-400">
-              Upload primary thumbnail and gallery preview images for marketplace display.
-            </p>
-          </div>
+          {images.length > 0 && (
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+              {images.length} {images.length === 1 ? 'image' : 'images'} uploaded
+            </span>
+          )}
         </div>
 
-        <div className="space-y-4">
-          {/* Gallery Images List */}
-          {images.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {images.map((url, idx) => (
-                <div 
-                  key={idx} 
-                  className={cn(
-                    'relative group rounded-2xl overflow-hidden border p-3 bg-slate-900/40 space-y-2 transition-all',
-                    idx === 0 
-                      ? 'border-emerald-500/60 ring-2 ring-emerald-500/20 bg-emerald-950/10' 
-                      : 'border-slate-200 dark:border-slate-800'
-                  )}
-                >
-                  <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800">
-                    <img src={url} alt={`Product ${idx + 1}`} className="w-full h-full object-contain" />
-                    {idx === 0 && (
-                      <span className="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow flex items-center gap-1">
-                        <Star className="w-3 h-3 fill-white" /> Primary Image
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setEditingImage({
-                        url,
-                        index: idx,
-                        fileName: `design_image_${idx + 1}.png`
-                      })}
-                      className="text-xs text-amber-500 hover:text-amber-400 font-semibold flex items-center gap-1 hover:underline"
-                      title="Open Mask Editor to remove text/watermark"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Remove Watermark
-                    </button>
-
-                    {idx !== 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newArr = [...images];
-                          const selected = newArr.splice(idx, 1)[0];
-                          newArr.unshift(selected);
-                          setImages(newArr);
-                        }}
-                        className="text-xs text-indigo-500 hover:text-indigo-400 font-semibold flex items-center gap-1 hover:underline"
-                      >
-                        <Star className="w-3.5 h-3.5" /> Make Primary
-                      </button>
-                    ) : (
-                      <span className="text-xs font-semibold text-emerald-500">Primary Image</span>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => removeImage(idx)}
-                      className="text-xs text-red-500 hover:text-red-400 font-semibold flex items-center gap-1 hover:underline ml-auto"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Image Error Alert */}
-          {imageError && (
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-red-500 bg-red-50/10 p-3 rounded-xl border border-red-500/20">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{imageError}</span>
-            </div>
-          )}
-
-          {/* Standardized ImageInput for Adding New Image */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-3">
+        <div className="space-y-6">
+          {/* 1. Standardized ImageInput for Adding New Image */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 space-y-3">
             <ImageInput
               label="Add Product Image (JPG, JPEG, PNG, WEBP — Max 5MB)"
               value={newImageUrl}
@@ -811,6 +699,137 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               directory="products"
               helpText="Select an image file from device (Max 5MB) to upload and add to product gallery"
             />
+          </div>
+
+          {/* 2. Uploaded Images Gallery List */}
+          {images.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Uploaded Gallery ({images.length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {images.map((url, idx) => (
+                  <div 
+                    key={idx} 
+                    className={cn(
+                      'relative group rounded-2xl overflow-hidden border p-3 bg-slate-900/40 space-y-2 transition-all',
+                      idx === 0 
+                        ? 'border-emerald-500/60 ring-2 ring-emerald-500/20 bg-emerald-950/10' 
+                        : 'border-slate-200 dark:border-slate-800'
+                    )}
+                  >
+                    <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800">
+                      <img src={getImageUrl(url)} alt={`Product ${idx + 1}`} className="w-full h-full object-contain" />
+                      {idx === 0 && (
+                        <span className="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-white" /> Primary Image
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setEditingImage({
+                          url,
+                          index: idx,
+                          fileName: `design_image_${idx + 1}.png`
+                        })}
+                        className="text-xs text-amber-500 hover:text-amber-400 font-semibold flex items-center gap-1 hover:underline"
+                        title="Open Mask Editor to remove text/watermark"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> Remove Watermark
+                      </button>
+
+                      {idx !== 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newArr = [...images];
+                            const selected = newArr.splice(idx, 1)[0];
+                            newArr.unshift(selected);
+                            setImages(newArr);
+                          }}
+                          className="text-xs text-indigo-500 hover:text-indigo-400 font-semibold flex items-center gap-1 hover:underline"
+                        >
+                          <Star className="w-3.5 h-3.5" /> Make Primary
+                        </button>
+                      ) : (
+                        <span className="text-xs font-semibold text-emerald-500">Primary Image</span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="text-xs text-red-500 hover:text-red-400 font-semibold flex items-center gap-1 hover:underline ml-auto"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Image Error Alert */}
+          {imageError && (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-red-500 bg-red-50/10 p-3 rounded-xl border border-red-500/20">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{imageError}</span>
+            </div>
+          )}
+
+          {/* 3. Primary Image Customization Studio */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            {images.length === 0 ? (
+              <div className="p-8 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 text-center space-y-2">
+                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  Primary Image Customization Studio
+                </h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Upload a primary image above to enable watermark configuration and live product code stamping.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    Primary Image Customization Studio
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Configure the default watermark pattern and product code text stamped onto the primary image.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* Left: Watermark Settings Panel (Col 6) */}
+                  <div className="lg:col-span-12 xl:col-span-6 space-y-4">
+                    <DefaultWatermarkPanel
+                      imageUrl={images[0]}
+                      config={watermarkConfig}
+                      onChange={setWatermarkConfig}
+                    />
+                  </div>
+
+                  {/* Right: Image Text Editor & Live Preview (Col 6) */}
+                  <div className="lg:col-span-12 xl:col-span-6 sticky top-6">
+                    <ImageTextEditor
+                      imageUrl={images[0]}
+                      productCode={watchedProductCode || getValues('productCode')}
+                      watermarkConfig={watermarkConfig}
+                      onCompositeGenerated={(compositeUrl) => {
+                        setStampedImageUrl(compositeUrl);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>

@@ -8,6 +8,7 @@ import {
   Info
 } from 'lucide-react';
 import { WatermarkConfig } from './DefaultWatermarkPanel';
+import { getImageUrl } from '@/lib/utils';
 
 export type PositionAnchor =
   | 'top-left'
@@ -104,7 +105,7 @@ export const ImageTextEditor: React.FC<ImageTextEditorProps> = ({
     if (!imageUrl) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = imageUrl;
+    img.src = getImageUrl(imageUrl);
     img.onload = () => {
       setLoadedImg(img);
     };
@@ -344,7 +345,7 @@ export const ImageTextEditor: React.FC<ImageTextEditorProps> = ({
         exportCtx.restore();
       }
 
-      const compUrl = exportCanvas.toDataURL('image/png');
+      const compUrl = exportCanvas.toDataURL('image/jpeg', 0.92);
       if (onCompositeGenerated) {
         onCompositeGenerated(compUrl);
       }

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RotateCcw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { getImageUrl } from '@/lib/utils';
 
 export interface WatermarkConfig {
   text: string;
@@ -43,7 +44,7 @@ export const DefaultWatermarkPanel: React.FC<DefaultWatermarkPanelProps> = ({
     if (!imageUrl) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = imageUrl;
+    img.src = getImageUrl(imageUrl);
     img.onload = () => {
       setLoadedImg(img);
     };
@@ -142,7 +143,7 @@ export const DefaultWatermarkPanel: React.FC<DefaultWatermarkPanelProps> = ({
                 Original Image
               </span>
               <div className="rounded-xl overflow-hidden bg-slate-950 aspect-video flex items-center justify-center border border-slate-200 dark:border-slate-800">
-                <img src={imageUrl} alt="Original" className="w-full h-full object-contain" />
+                <img src={getImageUrl(imageUrl)} alt="Original" className="w-full h-full object-contain" />
               </div>
             </div>
 
