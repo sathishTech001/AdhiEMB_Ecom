@@ -174,7 +174,7 @@ jobs:
   deploy-ec2:
     name: Deploy to Production EC2 (AWS SSM + OIDC)
     needs: [backend-docker, frontend-docker]
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_EC2_DEPLOY == 'true')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
