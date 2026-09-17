@@ -39,6 +39,9 @@ bin/
 fstore/
 **/fstore/
 **/fstore/**
+fstore-dev/
+**/fstore-dev/
+**/fstore-dev/**
 uploads/
 **/uploads/
 **/uploads/**

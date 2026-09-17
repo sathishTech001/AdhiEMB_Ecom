@@ -16,7 +16,6 @@ import {
   BarChart3,
   Star,
   FileText,
-  Sparkles,
   ChevronDown,
   ChevronRight,
   Plus,
@@ -94,9 +93,9 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         <div>
           {/* Logo Header */}
           <div className="flex h-16 items-center justify-between px-6 bg-slate-950/80 border-b border-slate-800/80">
-            <Link to="/dashboard" className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                <Sparkles className="w-4 h-4" />
+            <Link to="/dashboard" className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-xl bg-white/95 p-1 flex items-center justify-center shadow-md shadow-black/30 shrink-0">
+                <img src="/logo-icon.png" alt="AdhiEMB" className="w-full h-full object-contain" />
               </div>
               <span className="text-xl font-black tracking-tight text-white">
                 AdhiEMB <span className="text-xs text-indigo-400 font-semibold block">Admin Portal</span>

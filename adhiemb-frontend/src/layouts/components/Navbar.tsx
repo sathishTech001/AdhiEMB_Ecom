@@ -5,7 +5,6 @@ import {
   Menu as MenuIcon, 
   X, 
   Search, 
-  Sparkles, 
   LogOut, 
   LayoutDashboard, 
   PackageCheck, 
@@ -36,10 +35,12 @@ export const Navbar: React.FC = () => {
             
             {/* Logo */}
             <div className="flex items-center space-x-8">
-              <Link to="/" className="flex items-center space-x-2.5 group">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
-                  <Sparkles className="w-5 h-5" />
-                </div>
+              <Link to="/" className="flex items-center space-x-3 group">
+                <img
+                  src="/logo-icon.png"
+                  alt="AdhiEMB Logo"
+                  className="w-10 h-10 object-contain rounded-xl shadow-md border border-slate-200/60 dark:border-slate-700/60 group-hover:scale-105 transition-transform"
+                />
                 <div className="flex flex-col">
                   <span className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                     AdhiEMB
