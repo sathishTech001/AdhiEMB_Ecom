@@ -35,7 +35,7 @@ export const Navbar: React.FC = () => {
             
             {/* Logo */}
             <div className="flex items-center space-x-8">
-              <Link to="/" className="flex items-center space-x-3 group">
+              <Link to="/designs" className="flex items-center space-x-3 group">
                 <img
                   src="/logo-icon.png"
                   alt="AdhiEMB Logo"
@@ -54,7 +54,6 @@ export const Navbar: React.FC = () => {
               {/* Desktop Nav Links */}
               <nav className="hidden md:flex items-center space-x-1">
                 {[
-                  { name: 'Home', path: '/' },
                   { name: 'Designs', path: '/designs' },
                   { name: 'About', path: '/about' },
                   { name: 'FAQ', path: '/faq' },
@@ -212,7 +211,6 @@ export const Navbar: React.FC = () => {
           <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 pt-2 pb-6 space-y-3">
             <nav className="flex flex-col space-y-1">
               {[
-                { name: 'Home', path: '/' },
                 { name: 'Designs Catalog', path: '/designs' },
                 { name: 'My Digital Vault', path: '/my-downloads' },
                 { name: 'My Orders', path: '/my-orders' },

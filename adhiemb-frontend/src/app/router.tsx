@@ -42,7 +42,6 @@ import { ProductDetailPage } from '@/features/products/pages/ProductDetailPage';
 import { ProductApprovalPage } from '@/features/products/pages/ProductApprovalPage';
 
 // Marketplace Public
-import { HomePage } from '@/features/marketplace/pages/HomePage';
 import { AboutPage } from '@/features/marketplace/pages/AboutPage';
 import { ContactPage } from '@/features/marketplace/pages/ContactPage';
 import { FaqPage } from '@/features/marketplace/pages/FaqPage';
@@ -74,7 +73,8 @@ export function AppRouter() {
     <Routes>
       {/* Public / Marketplace routes */}
       <Route element={<PublicLayout />}>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<Navigate to="/designs" replace />} />
+        <Route path="/home" element={<Navigate to="/designs" replace />} />
         <Route path="/designs" element={<ProductCatalogPage />} />
         <Route path="/designs/:slug" element={<PublicProductDetailPage />} />
         <Route path="/about" element={<AboutPage />} />

@@ -7,7 +7,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Col 1: Brand & Logo */}
           <div className="md:col-span-2 space-y-4">
-            <Link to="/" className="flex items-center space-x-3 group">
+            <Link to="/designs" className="flex items-center space-x-3 group">
               <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-md">
                 <img src="/logo-icon.png" alt="AdhiEMB" className="w-full h-full object-contain" />
               </div>
